@@ -33,13 +33,27 @@ The command prompts for the account name and a new password without displaying t
 
 Open the separate administration interface at `http://localhost:8443/?admin=1` and sign in with the administrator account. The panel includes operational metrics, lead and quote management, project progress, agenda slots and reservations, transfer receipt review, and CRUD for services, portfolio projects, and testimonials. It reuses the existing API and styling without adding an admin link to the public navigation.
 
+Portfolio cases and testimonials are not seeded with fictional client names or performance claims. Publish only real work and client-approved testimonials from the admin panel; unverified sample entries from earlier seed data are deactivated by migration.
+
+The public WhatsApp contact is intentionally unset by default. Configure it under **SEO y tema → Datos de contacto** with an international number such as `+51...`; the site and proposal notifications use that value. Until configured, no WhatsApp contact number or link is displayed.
+
+The privacy-policy field is also managed under **SEO y tema**. A starter draft based on the site's current forms and account features is provided but is unpublished by default. The owner must verify the legal identity, actual providers, retention periods, and applicable requirements before enabling the public footer link.
+
+DigitalPyme's public site is a services catalog with quote requests. The legacy physical-product store is no longer linked or available at `/tienda` or `/tienda-demo`; those URLs redirect to the services catalog. Existing store orders and their admin history are retained.
+
+The service catalog includes approved scope descriptions for web design, online stores, branding, digital marketing, and maintenance. Prices, timelines, campaign channels, revision counts, and other project-specific conditions remain subject to the proposal; do not treat them as included unless the approved scope says so.
+
 The protected dashboard metrics endpoint is `GET /api/admin/dashboard?month=YYYY-MM`. It reports lead and quote counts, project status totals, payments awaiting verification, confirmed payment totals, reservations in the selected month, and configured monthly project capacity.
+
+The admin store endpoint `GET /api/admin/store` paginates products, stock movements, orders, and returns independently while keeping each collection as an array. It returns pagination metadata under `pagination`; use `per_page` (1-100, default 50) and the corresponding `products_page`, `movements_page`, `orders_page`, or `returns_page` query parameter to navigate each collection. For example, `GET /api/admin/store?per_page=25&orders_page=2&returns_page=3`.
+
+Store products support an optional category and a JPG, PNG, or WebP image up to 5 MB. Administrators upload or remove images from Panel administrador → Logística; files stay on the private `local` disk and storefront images are streamed through a public API route without exposing storage paths. The two seeded demonstration products are inactive and are not offered for sale; activate a product only after confirming its real price and inventory.
 
 ### SEO, brand, and coverage settings
 
 Apply the settings table with `php artisan migrate`. Public SEO and theme configuration is available at `GET /api/site-settings`; administrators update it with `PUT /api/admin/site-settings`. The admin panel's **SEO y tema** tab edits the SEO title and description, friendly slug, Open Graph image, brand logo, color palette, typography, digital service modality, and configurable online-store shipping zones.
 
-The starting theme defaults to the existing dark green (`#102c2c`), lime (`#c9f45b`), cream (`#f6f4ed`), DM Sans, and DM Serif Display. Supported font names are selected from a fixed allowlist. `GET /api/cobertura?servicio=Tiendas%20en%20linea&ubicacion=Lima` returns a configured shipping fee and delivery estimate; other digital services return whether they are virtual or also available in person in Lima. Add only real, verified shipping locations and prices in the panel.
+The starting theme defaults to the existing dark green (`#102c2c`), lime (`#c9f45b`), cream (`#f6f4ed`), DM Sans, and DM Serif Display. Supported font names are selected from a fixed allowlist. `GET /api/cobertura?servicio=Tiendas%20en%20linea&ubicacion=Lima` returns a configured shipping fee and delivery estimate; other digital services return whether they are virtual or also available in person in Lima. For store checkout, a configured zone fee is the standard-shipping base; express and same-day add only the difference between their configured method price and the standard price. If no zone matches, the configured method price is used. Add only real, verified shipping locations and prices in the panel.
 
 Laravel serves `/sitemap.xml` and `/robots.txt`; set `FRONTEND_URL` to the deployed frontend origin so sitemap links use the public site. If frontend and backend use different hosts, configure the frontend web server to proxy `/sitemap.xml` and `/robots.txt` to Laravel, so crawlers find them on the public site host. An editable slug is used as the canonical URL and sitemap entry. Configure the frontend host to rewrite that slug path to the SPA's `index.html` (Vite's development server already falls back to the SPA). Portfolio images already have editable alt text and a generated fallback description when the field is empty.
 
@@ -88,6 +102,18 @@ Card checkout uses Mercado Pago Checkout Pro, which hosts card entry and support
 Configure `BANK_TRANSFER_BANK`, `BANK_TRANSFER_HOLDER`, `BANK_TRANSFER_ACCOUNT`, and `BANK_TRANSFER_CCI` to show transfer instructions in the authenticated client portal. Apply schema updates with `php artisan migrate`.
 
 Payment creation is serialized per project to prevent duplicate or over-budget full-project and milestone charges. Only approved milestones with a configured amount can be paid. The admin payment API is available; the visual administration panel is covered in the administrator-panel implementation step.
+
+### Store payments
+
+The store supports manual Yape/Plin and bank-transfer payments without a payment-platform subscription. Set `YAPE_PLIN_ENABLED=true` and `YAPE_PLIN_PHONE` (optionally `YAPE_PLIN_HOLDER` and `YAPE_PLIN_QR_URL`) to offer Yape/Plin. Set `BANK_TRANSFER_ACCOUNT` or `BANK_TRANSFER_CCI` to offer a bank transfer; `BANK_TRANSFER_BANK`, `BANK_TRANSFER_HOLDER`, and the account/CCI values are displayed at checkout. Keep these destination details current and reload Laravel's configuration cache after changing production environment variables.
+
+Store orders start as pending payment and reserve stock for 24 hours. Clients upload a PDF, JPG, or PNG receipt (up to 10 MB) from Portal cliente → Pedidos. An administrator reviews the receipt in Panel administrador → Logística and confirms or rejects it. Only confirmed orders can advance into fulfillment; a rejected payment can receive a replacement receipt and gets a new 24-hour payment window. Unpaid orders are cancelled and stock is returned automatically. Receipt files stay on Laravel's private `local` disk and are downloaded only through authenticated client/admin routes. The store does not collect card data or automatically confirm transfers.
+
+The scheduler runs the expiration command every minute. During local development, keep `php artisan schedule:work` running; production must invoke `php artisan schedule:run` every minute.
+
+- Public payment options: `GET /api/store/payment-options`
+- Client receipt upload/download: `POST` / `GET /api/client/store/orders/{order}/receipt`
+- Admin receipt review/download: `PATCH /api/admin/store/orders/{order}/payment`, `GET /api/admin/store/orders/{order}/receipt`
 
 ## Learning Laravel
 
