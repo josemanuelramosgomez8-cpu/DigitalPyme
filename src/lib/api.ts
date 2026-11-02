@@ -1,4 +1,8 @@
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
+const configuredUrl = import.meta.env.VITE_API_URL as string | undefined;
+
+export const API_URL = (
+  configuredUrl ?? (import.meta.env.DEV ? "http://127.0.0.1:8000/api" : "/api")
+).replace(/\/+$/, "");
 
 export interface ApiService {
   id?: number;
@@ -485,69 +489,114 @@ export const defaultSiteSettings: SiteSettings = {
   },
 };
 
-async function postJson<T>(path: string, payload: unknown): Promise<T> {
-  const response = await fetch(`${API_URL}/${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+/* ------------------------------------------------------------------ */
+/* Utilidades de red                                                   */
+/* ------------------------------------------------------------------ */
 
-  const data: unknown = await response.json();
-  if (!response.ok) {
-    const body = data as { message?: string; mensaje?: string; errors?: Record<string, string[]> };
-    const validationMessage = body.errors
-      ? Object.values(body.errors).flat()[0]
-      : undefined;
-    throw new Error(validationMessage ?? body.mensaje ?? body.message ?? `La API respondió con estado ${response.status}`);
-  }
+type ApiErrorBody = {
+  message?: string;
+  mensaje?: string;
+  errors?: Record<string, string[]>;
+} | null;
 
-  return data as T;
+const REQUEST_TIMEOUT_MS = 30000;
+
+function authHeader(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
 }
 
-async function clientRequest<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_URL}/${path}`, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      Authorization: ["Bearer", token].join(" "),
-      ...init.headers,
-    },
-  });
-  const data: unknown = response.status === 204 ? null : await response.json();
-
-  if (!response.ok) {
-    const body = data as { message?: string; mensaje?: string; errors?: Record<string, string[]> } | null;
-    const validationMessage = body?.errors ? Object.values(body.errors).flat()[0] : undefined;
-    throw new Error(validationMessage ?? body?.mensaje ?? body?.message ?? `La API respondió con estado ${response.status}`);
+async function parseJson(response: Response): Promise<unknown> {
+  if (response.status === 204) return null;
+  try {
+    return await response.json();
+  } catch {
+    return null;
   }
-
-  return data as T;
 }
 
-async function getPublicCollection<T>(path: string, fallback: T[]): Promise<T[]> {
+function errorMessage(response: Response, data: unknown): string {
+  const body = data as ApiErrorBody;
+  const validation = body?.errors ? Object.values(body.errors).flat()[0] : undefined;
+  return validation ?? body?.mensaje ?? body?.message ?? `La API respondió con estado ${response.status}`;
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
     const response = await fetch(`${API_URL}/${path}`, {
-      headers: { Accept: "application/json" },
+      ...init,
+      signal: controller.signal,
+      headers: { Accept: "application/json", ...init.headers },
     });
+    const data = await parseJson(response);
 
-    if (!response.ok) {
-      throw new Error(`La API respondió con estado ${response.status}`);
-    }
-
-    const data: unknown = await response.json();
-    if (!Array.isArray(data)) {
-      throw new Error("La API devolvió un formato inesperado");
-    }
-
-    return data as T[];
+    if (!response.ok) throw new Error(errorMessage(response, data));
+    return data as T;
   } catch (error) {
-    console.warn(`No se pudo cargar ${path} desde la API; se usarán los datos locales.`, error);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("El servidor tardó demasiado en responder. Inténtalo de nuevo.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function postJson<T>(path: string, payload: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+function clientRequest<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
+  return request<T>(path, {
+    ...init,
+    headers: { ...authHeader(token), ...init.headers },
+  });
+}
+
+async function getPublicJson<T>(path: string, fallback: T): Promise<T> {
+  try {
+    return await request<T>(path);
+  } catch (error) {
+    console.warn(`No se pudo cargar ${path} desde la API; se usarán los valores locales.`, error);
     return fallback;
   }
 }
+
+async function getPublicCollection<T>(path: string, fallback: T[]): Promise<T[]> {
+  const data = await getPublicJson<unknown>(path, null);
+  return Array.isArray(data) ? (data as T[]) : fallback;
+}
+
+async function downloadFile(
+  path: string,
+  token: string,
+  fallbackName: string,
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${API_URL}/${path}`, { headers: authHeader(token) });
+
+  if (!response.ok) {
+    throw new Error(errorMessage(response, await parseJson(response)));
+  }
+
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const quoted = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+
+  return {
+    blob: await response.blob(),
+    filename: encoded ? decodeURIComponent(encoded) : quoted ?? fallbackName,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Público                                                             */
+/* ------------------------------------------------------------------ */
 
 export function getServices(fallback: ApiService[]): Promise<ApiService[]> {
   return getPublicCollection("servicios", fallback);
@@ -605,18 +654,8 @@ export function submitProposal(payload: {
   return postJson("propuestas", payload);
 }
 
-export async function getAgendaSlots(month: string): Promise<AgendaMonth> {
-  const response = await fetch(`${API_URL}/agenda/horarios?month=${encodeURIComponent(month)}`, {
-    headers: { Accept: "application/json" },
-  });
-  const data: unknown = await response.json();
-
-  if (!response.ok) {
-    const body = data as { message?: string };
-    throw new Error(body.message ?? `La API respondió con estado ${response.status}`);
-  }
-
-  return data as AgendaMonth;
+export function getAgendaSlots(month: string): Promise<AgendaMonth> {
+  return request<AgendaMonth>(`agenda/horarios?month=${encodeURIComponent(month)}`);
 }
 
 export function reserveAgendaSlot(payload: {
@@ -627,6 +666,24 @@ export function reserveAgendaSlot(payload: {
 }): Promise<{ mensaje: string; email_enviado: boolean; whatsapp_url: string | null }> {
   return postJson("agenda/reservas", payload);
 }
+
+export function getPublicSiteSettings(): Promise<SiteSettings> {
+  return getPublicJson("site-settings", defaultSiteSettings);
+}
+
+export function getCoverage(ubicacion?: string, servicio?: string): Promise<CoverageResult> {
+  const params = new URLSearchParams();
+  if (ubicacion) params.set("ubicacion", ubicacion);
+  if (servicio) params.set("servicio", servicio);
+  const query = params.toString();
+  return getPublicJson(`cobertura${query ? `?${query}` : ""}`, {
+    servicio_digital: { modalidad: "virtual_presencial_lima", detalle: "Atención virtual en todo el Perú y presencial en Lima." },
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Portal cliente                                                      */
+/* ------------------------------------------------------------------ */
 
 export function clientLogin(email: string, password: string): Promise<ClientSession> {
   return postJson("client/login", { email, password });
@@ -691,37 +748,12 @@ export function approveProjectMilestone(
   });
 }
 
-export async function downloadProjectFile(
-  token: string,
-  projectId: number,
-  documentId: number,
-): Promise<{ blob: Blob; filename: string }> {
-  const response = await fetch(
-    `${API_URL}/client/projects/${projectId}/documents/${documentId}/download`,
-    { headers: { Authorization: ["Bearer", token].join(" ") } },
+export function downloadProjectFile(token: string, projectId: number, documentId: number) {
+  return downloadFile(
+    `client/projects/${projectId}/documents/${documentId}/download`,
+    token,
+    `documento-${documentId}`,
   );
-
-  if (!response.ok) {
-    let message = `La API respondió con estado ${response.status}`;
-    try {
-      const body = await response.json() as { message?: string };
-      message = body.message ?? message;
-    } catch {
-      // A non-JSON response is reported with its HTTP status.
-    }
-    throw new Error(message);
-  }
-
-  const disposition = response.headers.get("Content-Disposition") ?? "";
-  const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-  const quotedFilename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-
-  return {
-    blob: await response.blob(),
-    filename: encodedFilename
-      ? decodeURIComponent(encodedFilename)
-      : quotedFilename ?? `documento-${documentId}`,
-  };
 }
 
 export function changeClientPassword(token: string, payload: {
@@ -740,17 +772,9 @@ export function clientLogout(token: string): Promise<{ mensaje: string }> {
   return clientRequest("logout", token, { method: "POST" });
 }
 
-export function adminLogin(email: string, password: string): Promise<ClientSession> {
-  return postJson("login", { email, password });
-}
-
-export function adminLogout(token: string): Promise<{ mensaje: string }> {
-  return clientLogout(token);
-}
-
-export function getAdminDashboard(token: string, month: string): Promise<AdminDashboard> {
-  return clientRequest(`admin/dashboard?month=${encodeURIComponent(month)}`, token);
-}
+/* ------------------------------------------------------------------ */
+/* Tienda (cliente)                                                    */
+/* ------------------------------------------------------------------ */
 
 export function getStoreProducts(): Promise<PublicStoreProduct[]> {
   return getPublicJson("store/products", []);
@@ -808,51 +832,11 @@ export function uploadStoreOrderReceipt(token: string, orderId: number, file: Fi
   });
 }
 
-export function updateAdminStorePaymentStatus(
-  token: string,
-  orderId: number,
-  payment_status: "pagado" | "rechazado",
-): Promise<StoreOrder> {
-  return clientRequest(`admin/store/orders/${orderId}/payment`, token, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ payment_status }),
-  });
-}
-
-export async function downloadStoreOrderReceipt(
-  token: string,
-  orderId: number,
-  admin = false,
-): Promise<{ blob: Blob; filename: string }> {
+export function downloadStoreOrderReceipt(token: string, orderId: number, admin = false) {
   const path = admin
     ? `admin/store/orders/${orderId}/receipt`
     : `client/store/orders/${orderId}/receipt`;
-  const response = await fetch(`${API_URL}/${path}`, {
-    headers: { Authorization: ["Bearer", token].join(" ") },
-  });
-
-  if (!response.ok) {
-    let message = `La API respondió con estado ${response.status}`;
-    try {
-      const body = await response.json() as { message?: string };
-      message = body.message ?? message;
-    } catch {
-      // A non-JSON response is reported with its HTTP status.
-    }
-    throw new Error(message);
-  }
-
-  const disposition = response.headers.get("Content-Disposition") ?? "";
-  const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-  const quotedFilename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-
-  return {
-    blob: await response.blob(),
-    filename: encodedFilename
-      ? decodeURIComponent(encodedFilename)
-      : quotedFilename ?? `comprobante-pedido-${orderId}`,
-  };
+  return downloadFile(path, token, `comprobante-pedido-${orderId}`);
 }
 
 export function getClientStoreOrders(token: string): Promise<StoreOrder[]> {
@@ -864,6 +848,34 @@ export function requestStoreReturn(token: string, orderId: number, motivo: strin
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ motivo }),
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Administración                                                      */
+/* ------------------------------------------------------------------ */
+
+export function adminLogin(email: string, password: string): Promise<ClientSession> {
+  return postJson("login", { email, password });
+}
+
+export function adminLogout(token: string): Promise<{ mensaje: string }> {
+  return clientLogout(token);
+}
+
+export function getAdminDashboard(token: string, month: string): Promise<AdminDashboard> {
+  return clientRequest(`admin/dashboard?month=${encodeURIComponent(month)}`, token);
+}
+
+export function updateAdminStorePaymentStatus(
+  token: string,
+  orderId: number,
+  payment_status: "pagado" | "rechazado",
+): Promise<StoreOrder> {
+  return clientRequest(`admin/store/orders/${orderId}/payment`, token, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ payment_status }),
   });
 }
 
@@ -934,21 +946,15 @@ export function updateAdminStoreReturn(token: string, id: number, payload: {
   });
 }
 
-export function getPublicSiteSettings(): Promise<SiteSettings> {
-  return getPublicJson("site-settings", defaultSiteSettings);
-}
-
 export function getAdminSiteSettings(token: string): Promise<SiteSettings> {
   return clientRequest("admin/site-settings", token);
 }
 
-export function getCoverage(ubicacion?: string, servicio?: string): Promise<CoverageResult> {
-  const params = new URLSearchParams();
-  if (ubicacion) params.set("ubicacion", ubicacion);
-  if (servicio) params.set("servicio", servicio);
-  const query = params.toString();
-  return getPublicJson(`cobertura${query ? `?${query}` : ""}`, {
-    servicio_digital: { modalidad: "virtual_presencial_lima", detalle: "Atención virtual en todo el Perú y presencial en Lima." },
+export function updateAdminSiteSettings(token: string, settings: SiteSettings): Promise<SiteSettings> {
+  return clientRequest("admin/site-settings", token, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
   });
 }
 
@@ -997,25 +1003,6 @@ export function moderateAdminReview(token: string, id: number, aprobada: boolean
 
 export function deleteAdminReview(token: string, id: number): Promise<{ mensaje: string }> {
   return clientRequest(`admin/resenas-servicios/${id}`, token, { method: "DELETE" });
-}
-
-export function updateAdminSiteSettings(token: string, settings: SiteSettings): Promise<SiteSettings> {
-  return clientRequest("admin/site-settings", token, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(settings),
-  });
-}
-
-async function getPublicJson<T>(path: string, fallback: T): Promise<T> {
-  try {
-    const response = await fetch(`${API_URL}/${path}`, { headers: { Accept: "application/json" } });
-    if (!response.ok) throw new Error(`La API respondió con estado ${response.status}`);
-    return await response.json() as T;
-  } catch (error) {
-    console.warn(`No se pudo cargar ${path} desde la API; se usarán los valores locales.`, error);
-    return fallback;
-  }
 }
 
 export function getAdminProjectCapacity(token: string, month: string): Promise<AdminProjectCapacity> {
@@ -1150,35 +1137,10 @@ export function deleteAdminCatalogItem(token: string, type: AdminCatalogType, id
   return clientRequest(`admin/${type}/${id}`, token, { method: "DELETE" });
 }
 
-export async function downloadAdminProjectFile(
-  token: string,
-  projectId: number,
-  documentId: number,
-): Promise<{ blob: Blob; filename: string }> {
-  const response = await fetch(
-    `${API_URL}/admin/projects/${projectId}/documents/${documentId}/download`,
-    { headers: { Authorization: ["Bearer", token].join(" ") } },
+export function downloadAdminProjectFile(token: string, projectId: number, documentId: number) {
+  return downloadFile(
+    `admin/projects/${projectId}/documents/${documentId}/download`,
+    token,
+    `documento-${documentId}`,
   );
-
-  if (!response.ok) {
-    let message = `La API respondió con estado ${response.status}`;
-    try {
-      const body = await response.json() as { message?: string };
-      message = body.message ?? message;
-    } catch {
-      // A non-JSON response is reported with its HTTP status.
-    }
-    throw new Error(message);
-  }
-
-  const disposition = response.headers.get("Content-Disposition") ?? "";
-  const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-  const quotedFilename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-
-  return {
-    blob: await response.blob(),
-    filename: encodedFilename
-      ? decodeURIComponent(encodedFilename)
-      : quotedFilename ?? `documento-${documentId}`,
-  };
 }
