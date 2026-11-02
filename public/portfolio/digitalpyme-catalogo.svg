@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" fill="none">
+  <rect width="1200" height="800" fill="#F6F4ED"/>
+  <rect x="64" y="58" width="1072" height="684" rx="26" fill="#FFFEF9" stroke="#DCE3DC" stroke-width="2"/>
+  <path d="M90 59H1110C1124.36 59 1136 70.6406 1136 85V151H64V85C64 70.6406 75.6406 59 90 59Z" fill="#102C2C"/>
+  <circle cx="104" cy="106" r="15" stroke="#FFFEF9" stroke-width="4"/>
+  <circle cx="104" cy="106" r="6" fill="#C9F45B"/>
+  <text x="132" y="114" fill="#FFFEF9" font-family="Arial, sans-serif" font-size="27" font-weight="700">DigitalPyme</text>
+  <text x="169" y="114" fill="#D6E4DC" font-family="Arial, sans-serif" font-size="18">Servicios</text>
+  <text x="259" y="114" fill="#D6E4DC" font-family="Arial, sans-serif" font-size="18">Proyectos</text>
+  <rect x="963" y="84" width="139" height="44" rx="8" fill="#C9F45B"/>
+  <text x="981" y="112" fill="#102C2C" font-family="Arial, sans-serif" font-size="15" font-weight="700">Cotizar proyecto</text>
+  <text x="120" y="222" fill="#55704A" font-family="Arial, sans-serif" font-size="16" font-weight="700" letter-spacing="3">SOLUCIONES DIGITALES</text>
+  <text x="120" y="292" fill="#102C2C" font-family="Georgia, serif" font-size="53">Una web que trabaja</text>
+  <text x="120" y="354" fill="#587357" font-family="Georgia, serif" font-size="53">por tu negocio.</text>
+  <text x="120" y="404" fill="#6D7D78" font-family="Arial, sans-serif" font-size="19">Servicios digitales y propuestas a la medida de cada proyecto.</text>
+  <rect x="120" y="446" width="190" height="55" rx="8" fill="#102C2C"/>
+  <text x="146" y="481" fill="#FFFEF9" font-family="Arial, sans-serif" font-size="17" font-weight="700">Ver servicios</text>
+  <rect x="120" y="558" width="960" height="1" fill="#DCE3DC"/>
+  <text x="120" y="613" fill="#102C2C" font-family="Georgia, serif" font-size="31">Servicios</text>
+  <text x="120" y="651" fill="#6D7D78" font-family="Arial, sans-serif" font-size="16">Explora el catálogo y solicita una propuesta.</text>
+  <rect x="688" y="588" width="172" height="94" rx="12" fill="#E3F3E4"/>
+  <text x="710" y="627" fill="#102C2C" font-family="Arial, sans-serif" font-size="17" font-weight="700">Páginas web</text>
+  <text x="710" y="654" fill="#6D7D78" font-family="Arial, sans-serif" font-size="14">Diseño y desarrollo</text>
+  <rect x="879" y="588" width="172" height="94" rx="12" fill="#E9E4FA"/>
+  <text x="901" y="627" fill="#102C2C" font-family="Arial, sans-serif" font-size="17" font-weight="700">Tiendas online</text>
+  <text x="901" y="654" fill="#6D7D78" font-family="Arial, sans-serif" font-size="14">Catálogo y pedidos</text>
+</svg>
