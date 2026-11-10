@@ -61,6 +61,11 @@ export interface ApiPortfolioProject {
   nombre: string;
   categoria: string;
   resultado: string;
+  descripcion_larga?: string | null;
+  desafio?: string | null;
+  solucion?: string | null;
+  entregables?: string[] | null;
+  tecnologias?: string[] | null;
   imagen: string;
   imagen_alt: string | null;
   etiqueta?: string | null;
@@ -86,8 +91,16 @@ export interface SolicitudResponse {
   mensaje: string;
   inversion_estimada: number | string | null;
   incluye_servicios_a_cotizar?: boolean;
+  metodo_pago_preferido?: QuotePaymentPreference;
   email_enviado: boolean;
   whatsapp_url: string | null;
+}
+
+export type QuotePaymentPreference = "undecided" | "card" | "bank_transfer" | "yape" | "plin" | "yape_plin" | "paypal";
+
+export interface QuoteVerificationResponse {
+  mensaje: string;
+  verification_token?: string;
 }
 
 export interface AgendaSlot {
@@ -105,7 +118,7 @@ export interface AgendaMonth {
 
 export interface ClientSession {
   token: string;
-  usuario: { name: string; email: string };
+  usuario: { name: string; email: string; must_change_password?: boolean };
 }
 
 export interface ClientProject {
@@ -160,6 +173,7 @@ export interface ProjectPayment {
   status: "pendiente" | "comprobante_enviado" | "pagado" | "rechazado" | "fallido";
   paid_at: string | null;
   created_at: string;
+  receipt_email_sent?: boolean;
   milestone?: { id: number; titulo: string } | null;
   receipt?: ProjectFile | null;
 }
@@ -196,6 +210,55 @@ export interface AdminLead {
   client?: { id: number; lead_id: number; user_id: number } | null;
 }
 
+export interface AdminManagedClient {
+  id: number;
+  nombre: string;
+  empresa: string | null;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    is_active: boolean;
+    must_change_password: boolean;
+    created_at: string;
+  };
+  lead: {
+    id: number;
+    nombre: string;
+    email: string | null;
+    telefono: string | null;
+    created_at: string;
+    cotizaciones?: AdminQuote[];
+  } | null;
+  requests?: {
+    id: number;
+    nombre: string;
+    email: string | null;
+    telefono: string | null;
+    servicio: string;
+    mensaje: string | null;
+    estado: string;
+    created_at: string;
+    cotizaciones: AdminQuote[];
+  }[];
+  projects?: {
+    id: number;
+    nombre: string;
+    estado: string;
+    created_at: string;
+    cotizacion: AdminQuote | null;
+    payments?: {
+      id: number;
+      amount: number | string;
+      status: string;
+      method: string;
+      paid_at: string | null;
+      milestone: { id: number; titulo: string } | null;
+      receipt: { id: number; original_name: string } | null;
+    }[];
+  }[];
+}
+
 export interface AdminQuote {
   id: number;
   lead_id: number;
@@ -204,6 +267,7 @@ export interface AdminQuote {
   monto: number | string;
   estado: "borrador" | "enviada" | "aceptada" | "rechazada";
   created_at: string;
+  email_enviado?: boolean;
 }
 
 export interface AdminProject extends ClientProject {
@@ -334,10 +398,22 @@ export interface StoreOrder {
   metodo_envio: string;
   ubicacion_entrega: string;
   direccion_entrega: string;
+  nombre_cliente: string | null;
+  email_cliente: string | null;
+  telefono_cliente: string | null;
+  tipo_comprobante: "boleta" | "factura" | null;
+  tipo_documento: "dni" | "ruc" | null;
+  numero_documento: string | null;
+  empresa_facturacion: string | null;
   codigo_rastreo: string | null;
   subtotal: number | string;
   costo_envio: number | string;
+  discount_amount: number | string;
+  coupon_code: string | null;
+  igv_rate: number | string;
+  igv_amount: number | string;
   total: number | string;
+  email_enviado?: boolean;
   items: StoreOrderItem[];
   return_request?: StoreReturnRequest | null;
   returnRequest?: StoreReturnRequest | null;
@@ -365,6 +441,8 @@ export interface StoreShippingMethod {
 
 export interface StorePaymentOptions {
   card_enabled: boolean;
+  card_environment: "sandbox" | "production";
+  igv_rate: number;
   bank_transfer: {
     enabled: boolean;
     bank: string | null;
@@ -380,11 +458,33 @@ export interface StorePaymentOptions {
   };
 }
 
+export interface StoreCoupon {
+  id: number;
+  code: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number | string;
+  active: boolean;
+  starts_at: string | null;
+  expires_at: string | null;
+}
+
+export interface ClientStoreProfile {
+  nombre: string;
+  empresa: string | null;
+  telefono: string | null;
+  tipo_documento: "dni" | "ruc" | null;
+  numero_documento: string | null;
+  tipo_comprobante: "boleta" | "factura" | null;
+  direccion_entrega: string | null;
+  ubicacion_entrega: string | null;
+}
+
 export interface AdminStoreData {
   products: StoreProduct[];
   movements: StoreStockMovement[];
   orders: StoreOrder[];
   returns: StoreReturnRequest[];
+  coupons: StoreCoupon[];
   metrics: {
     low_stock: number;
     out_of_stock: number;
@@ -500,6 +600,13 @@ type ApiErrorBody = {
 } | null;
 
 const REQUEST_TIMEOUT_MS = 30000;
+export const SESSION_EXPIRED_EVENT = "digitalpyme:session-expired";
+
+function notifySessionExpired(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+}
 
 function authHeader(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
@@ -530,6 +637,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       signal: controller.signal,
       headers: { Accept: "application/json", ...init.headers },
     });
+
+    if (response.status === 401 && new Headers(init.headers).has("Authorization")) {
+      notifySessionExpired();
+      throw new Error("Tu sesión venció o ya no es válida. Inicia sesión nuevamente.");
+    }
+
     const data = await parseJson(response);
 
     if (!response.ok) throw new Error(errorMessage(response, data));
@@ -580,6 +693,11 @@ async function downloadFile(
 ): Promise<{ blob: Blob; filename: string }> {
   const response = await fetch(`${API_URL}/${path}`, { headers: authHeader(token) });
 
+  if (response.status === 401) {
+    notifySessionExpired();
+    throw new Error("Tu sesión venció o ya no es válida. Inicia sesión nuevamente.");
+  }
+
   if (!response.ok) {
     throw new Error(errorMessage(response, await parseJson(response)));
   }
@@ -610,8 +728,15 @@ export function getTestimonials(fallback: ApiTestimonial[]): Promise<ApiTestimon
   return getPublicCollection("testimonios", fallback);
 }
 
-export function getServiceReviews(): Promise<ServiceReview[]> {
-  return getPublicCollection("resenas", []);
+export function getServiceReviews(offset = 0, limit = 6): Promise<ServiceReview[]> {
+  const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  const path = `resenas?${query.toString()}`;
+  return offset === 0 ? getPublicCollection(path, []) : request<ServiceReview[]>(path);
+}
+
+export function refreshServiceReviews(limit = 7): Promise<ServiceReview[]> {
+  const query = new URLSearchParams({ offset: "0", limit: String(limit) });
+  return request<ServiceReview[]>(`resenas?${query.toString()}`);
 }
 
 export function getServiceCategories(): Promise<ServiceCategory[]> {
@@ -645,13 +770,35 @@ export function submitLead(payload: Record<string, string | undefined>): Promise
 
 export function submitProposal(payload: {
   nombre: string;
-  empresa?: string;
-  email?: string;
-  telefono?: string;
+  apellido: string;
+  empresa: string;
+  pais: string;
+  email: string;
+  telefono: string;
   servicios: string[];
+  verification_token: string;
+  acepta_terminos: boolean;
+  acepta_privacidad: boolean;
+  website: string;
+  metodo_pago_preferido: QuotePaymentPreference;
   mensaje?: string;
 }): Promise<SolicitudResponse> {
   return postJson("propuestas", payload);
+}
+
+export function requestQuoteVerificationCode(payload: {
+  email: string;
+  website: string;
+}): Promise<QuoteVerificationResponse> {
+  return postJson("propuestas/codigo", payload);
+}
+
+export function verifyQuoteEmailCode(payload: {
+  email: string;
+  code: string;
+  website: string;
+}): Promise<QuoteVerificationResponse> {
+  return postJson("propuestas/verificar-codigo", payload);
 }
 
 export function getAgendaSlots(month: string): Promise<AgendaMonth> {
@@ -687,6 +834,19 @@ export function getCoverage(ubicacion?: string, servicio?: string): Promise<Cove
 
 export function clientLogin(email: string, password: string): Promise<ClientSession> {
   return postJson("client/login", { email, password });
+}
+
+export function registerClient(payload: {
+  nombre: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<ClientSession & { notificacion_admin_enviada: boolean }> {
+  return postJson("client/register", payload);
+}
+
+export function getClientStoreProfile(token: string): Promise<ClientStoreProfile> {
+  return clientRequest<ClientStoreProfile>("client/profile", token);
 }
 
 export function getClientProjects(token: string): Promise<ClientProject[]> {
@@ -756,6 +916,14 @@ export function downloadProjectFile(token: string, projectId: number, documentId
   );
 }
 
+export function downloadClientPaymentReceipt(token: string, projectId: number, paymentId: number) {
+  return downloadFile(
+    `client/projects/${projectId}/payments/${paymentId}/receipt`,
+    token,
+    `recibo-digitalpyme-${String(paymentId).padStart(8, "0")}.pdf`,
+  );
+}
+
 export function changeClientPassword(token: string, payload: {
   current_password: string;
   password: string;
@@ -777,22 +945,23 @@ export function clientLogout(token: string): Promise<{ mensaje: string }> {
 /* ------------------------------------------------------------------ */
 
 export function getStoreProducts(): Promise<PublicStoreProduct[]> {
-  return getPublicJson("store/products", []);
+  return request<PublicStoreProduct[]>("store/products");
 }
 
-export function getStoreShippingOptions(): Promise<{ methods: StoreShippingMethod[]; free_shipping_threshold: number | string }> {
-  return getPublicJson("store/shipping-options", {
-    methods: defaultSiteSettings.coverage.shipping_methods,
-    free_shipping_threshold: defaultSiteSettings.coverage.free_shipping_threshold,
-  });
+export function getStoreShippingOptions(): Promise<{
+  methods: StoreShippingMethod[];
+  zones: { location: string; fee: number | string; delivery_days: number }[];
+  free_shipping_threshold: number | string;
+}> {
+  return request<{
+    methods: StoreShippingMethod[];
+    zones: { location: string; fee: number | string; delivery_days: number }[];
+    free_shipping_threshold: number | string;
+  }>("store/shipping-options");
 }
 
 export function getStorePaymentOptions(): Promise<StorePaymentOptions> {
-  return getPublicJson("store/payment-options", {
-    card_enabled: false,
-    bank_transfer: { enabled: false, bank: null, holder: null, account: null, cci: null },
-    yape_plin: { enabled: false, phone: null, holder: null, qr_url: null },
-  });
+  return request<StorePaymentOptions>("store/payment-options");
 }
 
 export function createStoreOrder(token: string, payload: {
@@ -801,10 +970,32 @@ export function createStoreOrder(token: string, payload: {
   payment_method: "bank_transfer" | "yape_plin" | "card";
   ubicacion_entrega: string;
   direccion_entrega: string;
+  telefono: string;
+  tipo_comprobante: "boleta" | "factura";
+  tipo_documento: "dni" | "ruc";
+  numero_documento: string;
+  empresa_facturacion?: string;
+  coupon_code?: string;
   tipo_operacion?: "in-house" | "3PL";
   operador_logistico?: string;
 }): Promise<StoreOrder> {
   return clientRequest("client/store/orders", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function validateStoreCoupon(token: string, payload: {
+  code: string;
+  items: { product_id: number; cantidad: number }[];
+}): Promise<{
+  code: string;
+  discount_type: StoreCoupon["discount_type"];
+  discount_value: number | string;
+  discount_amount: number | string;
+}> {
+  return clientRequest("client/store/coupons/validate", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -889,6 +1080,23 @@ export function saveAdminStoreProduct(token: string, id: number | null, payload:
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export function saveAdminStoreCoupon(token: string, id: number | null, payload: {
+  code: string;
+  discount_type: StoreCoupon["discount_type"];
+  discount_value: number;
+  active: boolean;
+}): Promise<StoreCoupon> {
+  return clientRequest(id === null ? "admin/store/coupons" : `admin/store/coupons/${id}`, token, {
+    method: id === null ? "POST" : "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminStoreCoupon(token: string, id: number): Promise<{ mensaje: string }> {
+  return clientRequest(`admin/store/coupons/${id}`, token, { method: "DELETE" });
 }
 
 export function uploadAdminStoreProductImage(token: string, id: number, image: File): Promise<{ mensaje: string; imagen_url: string }> {
@@ -1021,6 +1229,61 @@ export function getAdminLeads(token: string): Promise<AdminLead[]> {
   return clientRequest("leads", token);
 }
 
+export function getAdminClients(token: string, search = ""): Promise<AdminManagedClient[]> {
+  const query = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
+  return clientRequest(`clients${query}`, token);
+}
+
+export function getAdminClient(token: string, clientId: number): Promise<AdminManagedClient> {
+  return clientRequest(`clients/${clientId}`, token);
+}
+
+export function updateAdminClient(token: string, clientId: number, payload: {
+  nombre: string;
+  empresa: string | null;
+  email: string;
+  telefono: string | null;
+}): Promise<AdminManagedClient> {
+  return clientRequest(`clients/${clientId}`, token, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminClientStatus(token: string, clientId: number, is_active: boolean): Promise<{ mensaje: string; is_active: boolean }> {
+  return clientRequest(`clients/${clientId}/status`, token, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ is_active }),
+  });
+}
+
+export function updateAdminClientPassword(token: string, clientId: number, payload: {
+  password: string;
+  password_confirmation: string;
+  force_change: boolean;
+}): Promise<{ mensaje: string }> {
+  return clientRequest(`clients/${clientId}/password`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function sendAdminClientPasswordReset(token: string, clientId: number): Promise<{ mensaje: string; email_enviado: boolean }> {
+  return clientRequest(`clients/${clientId}/password/reset-link`, token, { method: "POST" });
+}
+
+export function resetClientPassword(payload: {
+  email: string;
+  token: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<{ mensaje: string }> {
+  return postJson("password/reset", payload);
+}
+
 export function updateAdminLead(token: string, leadId: number, estado: AdminLead["estado"]): Promise<AdminLead> {
   return clientRequest(`leads/${leadId}`, token, {
     method: "PATCH",
@@ -1054,12 +1317,21 @@ export function createAdminQuote(token: string, leadId: number, payload: {
   });
 }
 
-export function updateAdminQuote(token: string, quoteId: number, estado: AdminQuote["estado"]): Promise<AdminQuote> {
+export function updateAdminQuote(token: string, quoteId: number, payload: {
+  estado?: AdminQuote["estado"];
+  servicio?: string;
+  descripcion?: string | null;
+  monto?: number;
+}): Promise<AdminQuote> {
   return clientRequest(`cotizaciones/${quoteId}`, token, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ estado }),
+    body: JSON.stringify(payload),
   });
+}
+
+export function resendAdminQuote(token: string, quoteId: number): Promise<AdminQuote> {
+  return clientRequest(`cotizaciones/${quoteId}/reenviar`, token, { method: "POST" });
 }
 
 export function getAdminProjects(token: string): Promise<AdminProject[]> {

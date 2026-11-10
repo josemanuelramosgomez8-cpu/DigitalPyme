@@ -17,6 +17,8 @@ export default function ClientStoreOrders({ token }: { token: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [paymentOptions, setPaymentOptions] = useState<StorePaymentOptions>({
     card_enabled: false,
+    card_environment: "sandbox",
+    igv_rate: 18,
     bank_transfer: { enabled: false, bank: null, holder: null, account: null, cci: null },
     yape_plin: { enabled: false, phone: null, holder: null, qr_url: null },
   });
@@ -135,6 +137,13 @@ export default function ClientStoreOrders({ token }: { token: string }) {
                 <button className="button" type="button" onClick={() => void retryCardPayment(order)}>Pagar con tarjeta</button>
               )}
             </div>
+            <div className="store-order-tax-summary">
+              <span>Subtotal: S/ {Number(order.subtotal).toLocaleString("es-PE", { minimumFractionDigits: 2 })}</span>
+              {Number(order.discount_amount) > 0 && <span>Descuento{order.coupon_code ? ` (${order.coupon_code})` : ""}: − S/ {Number(order.discount_amount).toLocaleString("es-PE", { minimumFractionDigits: 2 })}</span>}
+              <span>Envío: S/ {Number(order.costo_envio).toLocaleString("es-PE", { minimumFractionDigits: 2 })}</span>
+              <span>IGV ({Number(order.igv_rate)}%): S/ {Number(order.igv_amount).toLocaleString("es-PE", { minimumFractionDigits: 2 })}</span>
+              <span>Comprobante: <b>{order.tipo_comprobante ? order.tipo_comprobante[0].toUpperCase() + order.tipo_comprobante.slice(1) : "—"}</b></span>
+            </div>
             {order.payment_status === "pendiente" && order.payment_method !== "card" && <p className="form-status">Completa el pago para iniciar la preparación del pedido.</p>}
             {order.payment_status === "comprobante_enviado" && <p className="form-status">Recibimos tu comprobante. El pedido avanzará cuando confirmemos el pago.</p>}
             {order.payment_status === "rechazado" && <p className="form-status error">{order.payment_method === "card" ? "Mercado Pago no confirmó el pago. Puedes volver a intentarlo con tarjeta." : "No pudimos confirmar el pago. Revisa el importe y los datos de destino y envía un nuevo comprobante."}</p>}
@@ -145,7 +154,7 @@ export default function ClientStoreOrders({ token }: { token: string }) {
               <div className="store-payment-instructions">
                 <strong>Yape o Plin</strong>
                 <p>Número <b>{paymentOptions.yape_plin.phone}</b>{paymentOptions.yape_plin.holder ? ` · Titular: ${paymentOptions.yape_plin.holder}` : ""}</p>
-                {paymentOptions.yape_plin.qr_url && <img src={paymentOptions.yape_plin.qr_url} alt="Código QR de pago por Yape o Plin" />}
+                <img src={paymentOptions.yape_plin.qr_url || "/images/yape-qr.png"} alt="Código QR de pago por Yape" />
               </div>
             )}
             {order.payment_status !== "pagado" && order.payment_method === "bank_transfer" && paymentOptions.bank_transfer.enabled && (

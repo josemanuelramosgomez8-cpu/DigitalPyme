@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import AdminClients from "./AdminClients";
 import AdminLogistics from "./AdminLogistics";
 import {
   adminLogin,
@@ -26,6 +27,7 @@ import {
   deleteAdminSubcategory,
   moderateAdminReview,
   deleteAdminReview,
+  resendAdminQuote,
   saveAdminSlot,
   updateAdminLead,
   updateAdminPayment,
@@ -50,15 +52,32 @@ import {
   type ClientSession,
   type SiteSettings,
   defaultSiteSettings,
+  SESSION_EXPIRED_EVENT,
 } from "./lib/api";
 
-type AdminTab = "resumen" | "solicitudes" | "proyectos" | "agenda" | "pagos" | "logistica" | "catalogos" | "configuracion";
+type AdminTab = "resumen" | "solicitudes" | "clientes" | "proyectos" | "agenda" | "pagos" | "logistica" | "catalogos" | "configuracion";
 type CatalogItem = (ApiService | ApiPortfolioProject | ApiTestimonial) & { id: number };
 type CatalogDraft = Record<string, string | boolean>;
+
+const leadStatusLabels: Record<AdminLead["estado"], string> = {
+  nuevo: "Recibida",
+  contactado: "En revisión",
+  cotizado: "Cotización enviada",
+  ganado: "Proyecto iniciado",
+  perdido: "Cerrada",
+};
+
+const quoteStatusLabels: Record<AdminQuote["estado"], string> = {
+  borrador: "Borrador",
+  enviada: "Enviada",
+  aceptada: "Aprobada",
+  rechazada: "Rechazada",
+};
 
 const tabs: { id: AdminTab; label: string; icon: string }[] = [
   { id: "resumen", label: "Resumen", icon: "grid" },
   { id: "solicitudes", label: "Solicitudes", icon: "message" },
+  { id: "clientes", label: "Clientes", icon: "user" },
   { id: "proyectos", label: "Proyectos", icon: "spark" },
   { id: "agenda", label: "Agenda", icon: "calendar" },
   { id: "pagos", label: "Pagos", icon: "money" },
@@ -86,6 +105,11 @@ const catalogFields: Record<AdminCatalogType, { name: string; label: string; typ
     { name: "nombre", label: "Nombre" },
     { name: "categoria", label: "Categoría" },
     { name: "resultado", label: "Resultado" },
+    { name: "descripcion_larga", label: "Descripción completa", type: "textarea" },
+    { name: "desafio", label: "Desafío", type: "textarea" },
+    { name: "solucion", label: "Solución", type: "textarea" },
+    { name: "entregables", label: "Entregables (un elemento por línea)", type: "textarea" },
+    { name: "tecnologias", label: "Tecnologías o herramientas (una por línea)", type: "textarea" },
     { name: "imagen", label: "URL de imagen" },
     { name: "imagen_alt", label: "Texto alternativo" },
     { name: "etiqueta", label: "Etiqueta", type: "select" },
@@ -118,8 +142,10 @@ function localDate(): string {
 
 function restoreAdminSession(): ClientSession | null {
   try {
-    const token = localStorage.getItem("digitalpyme.admin.token");
-    const usuario = localStorage.getItem("digitalpyme.admin.user");
+    localStorage.removeItem("digitalpyme.admin.token");
+    localStorage.removeItem("digitalpyme.admin.user");
+    const token = sessionStorage.getItem("digitalpyme.admin.token");
+    const usuario = sessionStorage.getItem("digitalpyme.admin.user");
     if (!token || !usuario) return null;
     return { token, usuario: JSON.parse(usuario) as ClientSession["usuario"] };
   } catch {
@@ -143,8 +169,8 @@ function AdminBrand({ light = false }: { light?: boolean }) {
   );
 }
 
-function AdminPortal({ onClose }: { onClose: () => void }) {
-  const [session, setSession] = useState<ClientSession | null>(restoreAdminSession);
+function AdminPortal({ onClose, initialSession = null }: { onClose: () => void; initialSession?: ClientSession | null }) {
+  const [session, setSession] = useState<ClientSession | null>(() => initialSession ?? restoreAdminSession());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tab, setTab] = useState<AdminTab>("resumen");
@@ -169,12 +195,33 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
   const [catalogDraft, setCatalogDraft] = useState<CatalogDraft>({});
   const [expandedLeadId, setExpandedLeadId] = useState<number | null>(null);
   const [quoteDraft, setQuoteDraft] = useState({ servicio: "", descripcion: "", monto: "" });
+  const [quoteEditDraft, setQuoteEditDraft] = useState<{ id: number | null; servicio: string; descripcion: string; monto: string }>({
+    id: null,
+    servicio: "",
+    descripcion: "",
+    monto: "",
+  });
   const [slotDraft, setSlotDraft] = useState({ date: localDate(), time: "09:00", capacity: "1", active: true });
   const [loading, setLoading] = useState(false);
   const [loginBusy, setLoginBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [clientRefreshKey, setClientRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const expireSession = () => {
+      sessionStorage.removeItem("digitalpyme.admin.token");
+      sessionStorage.removeItem("digitalpyme.admin.user");
+      localStorage.removeItem("digitalpyme.admin.token");
+      localStorage.removeItem("digitalpyme.admin.user");
+      setSession(null);
+      setError("Tu sesión venció. Inicia sesión nuevamente.");
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
+  }, []);
 
   const refresh = async (activeTab = tab) => {
     if (!session) return;
@@ -193,6 +240,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
         setLeads(loadedLeads);
       }
       if (activeTab === "solicitudes") setLeads(await getAdminLeads(session.token));
+      if (activeTab === "clientes") setClientRefreshKey((key) => key + 1);
       if (activeTab === "proyectos") setProjects(await getAdminProjects(session.token));
       if (activeTab === "pagos") setPayments(await getAdminPayments(session.token));
       if (activeTab === "agenda") {
@@ -228,6 +276,8 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
   }, [session, tab, month, catalogType]);
 
   const dismissAdmin = () => {
+    sessionStorage.removeItem("digitalpyme.admin.token");
+    sessionStorage.removeItem("digitalpyme.admin.user");
     localStorage.removeItem("digitalpyme.admin.token");
     localStorage.removeItem("digitalpyme.admin.user");
     setSession(null);
@@ -240,8 +290,8 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
     setError("");
     try {
       const result = await adminLogin(email, password);
-      localStorage.setItem("digitalpyme.admin.token", result.token);
-      localStorage.setItem("digitalpyme.admin.user", JSON.stringify(result.usuario));
+      sessionStorage.setItem("digitalpyme.admin.token", result.token);
+      sessionStorage.setItem("digitalpyme.admin.user", JSON.stringify(result.usuario));
       setSession(result);
       setPassword("");
     } catch (loginError) {
@@ -311,11 +361,62 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
 
   const changeQuoteStatus = async (quote: AdminQuote, estado: AdminQuote["estado"]) => {
     if (!session) return;
-    if (estado === "aceptada" && !window.confirm("Al aceptar, se creará el proyecto del cliente y se reservará un cupo del mes actual. ¿Continuar?")) return;
-    await runAction(async () => {
-      await updateAdminQuote(session.token, quote.id, estado);
+    if (estado === "aceptada" && !window.confirm("Confirma que el cliente aceptó el precio y el alcance. Se creará el proyecto y se habilitarán los pagos únicamente para esa cotización. ¿Continuar?")) return;
+    let emailEnviado: boolean | undefined;
+    const completed = await runAction(async () => {
+      const updated = await updateAdminQuote(session.token, quote.id, { estado });
+      emailEnviado = updated.email_enviado;
       if (estado === "aceptada") setProjects(await getAdminProjects(session.token));
-    }, estado === "aceptada" ? "Cotización aceptada y proyecto creado." : "Estado de cotización actualizado.", "solicitudes");
+    }, estado === "enviada" ? "Cotización enviada al cliente con PDF." : estado === "aceptada" ? "Cotización aceptada y proyecto creado." : "Estado de cotización actualizado.", "solicitudes");
+    if (completed && estado === "enviada" && emailEnviado === false) {
+      setNotice("Cotización guardada, pero el correo no se entregó. Configura SMTP y usa «Reenviar correo».");
+    }
+  };
+
+  const resendQuote = async (quote: AdminQuote) => {
+    if (!session) return;
+    let emailEnviado = false;
+    const completed = await runAction(async () => {
+      const result = await resendAdminQuote(session.token, quote.id);
+      emailEnviado = result.email_enviado === true;
+    }, "Correo de cotización reenviado.", "solicitudes");
+    if (completed && !emailEnviado) {
+      setNotice("No se pudo entregar el correo. Verifica la configuración SMTP del servidor.");
+    }
+  };
+
+  const editQuote = (quote: AdminQuote) => {
+    setQuoteEditDraft({
+      id: quote.id,
+      servicio: quote.servicio,
+      descripcion: quote.descripcion ?? "",
+      monto: String(quote.monto),
+    });
+  };
+
+  const submitQuoteEdit = async (event: FormEvent, quote: AdminQuote) => {
+    event.preventDefault();
+    if (!session || quoteEditDraft.id !== quote.id) return;
+    await runAction(async () => {
+      await updateAdminQuote(session.token, quote.id, {
+        servicio: quoteEditDraft.servicio,
+        descripcion: quoteEditDraft.descripcion,
+        monto: Number(quoteEditDraft.monto),
+      });
+      setQuoteEditDraft({ id: null, servicio: "", descripcion: "", monto: "" });
+    }, "Precio y alcance actualizados.", "solicitudes");
+  };
+
+  const verifyPayment = async (payment: AdminPayment) => {
+    if (!session) return;
+    let receiptEmailSent: boolean | undefined;
+    const completed = await runAction(async () => {
+      const updated = await updateAdminPayment(session.token, payment.id, "pagado");
+      receiptEmailSent = updated.receipt_email_sent;
+    }, "Pago verificado y recibo generado.", "pagos");
+    if (completed && receiptEmailSent === false) {
+      setNotice("Pago verificado. El recibo está disponible en el portal, pero el correo no se entregó; revisa SMTP.");
+    }
   };
 
   const submitSlot = async (event: FormEvent) => {
@@ -332,7 +433,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
     if (!session) return;
     const payload: Record<string, unknown> = { ...catalogDraft };
     for (const field of catalogFields[catalogType]) {
-      if (field.name === "incluye") {
+      if (["incluye", "entregables", "tecnologias"].includes(field.name)) {
         payload[field.name] = String(catalogDraft[field.name] ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
         continue;
       }
@@ -397,9 +498,9 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
     const draft: CatalogDraft = {};
     for (const field of catalogFields[catalogType]) {
       const value = item[field.name as keyof CatalogItem];
-      draft[field.name] = field.name === "incluye" && Array.isArray(value)
+      draft[field.name] = (["incluye", "entregables", "tecnologias"].includes(field.name) && Array.isArray(value)
         ? value.join("\n")
-        : typeof value === "boolean" ? value : value == null ? "" : String(value);
+        : typeof value === "boolean" ? value : value == null ? "" : String(value));
     }
     setEditingCatalogId(item.id);
     setCatalogDraft(draft);
@@ -489,7 +590,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
         <nav>
           {tabs.map((item) => (
             <button key={item.id} type="button" className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}>
-              <span aria-hidden="true">{item.icon === "grid" ? "▦" : item.icon === "message" ? "✉" : item.icon === "spark" ? "✦" : item.icon === "calendar" ? "▣" : item.icon === "money" ? "S/" : "▤"}</span>
+              <span aria-hidden="true">{item.icon === "grid" ? "▦" : item.icon === "message" ? "✉" : item.icon === "spark" ? "✦" : item.icon === "calendar" ? "▣" : item.icon === "money" ? "S/" : item.icon === "user" ? "♙" : "▤"}</span>
               {item.label}
               {item.id === "pagos" && dashboard?.pagos_por_verificar ? <i>{dashboard.pagos_por_verificar}</i> : null}
             </button>
@@ -587,7 +688,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
                         <span className="admin-lead-name"><i>{lead.nombre.slice(0, 1).toUpperCase()}</i><b>{lead.nombre}<small>{lead.email ?? lead.telefono ?? "Sin contacto"}</small></b></span>
                         <span>{lead.servicio}</span>
                         <span>{new Date(lead.created_at).toLocaleDateString("es-PE")}</span>
-                        <span className={`admin-lead-status status-${lead.estado}`}>{lead.estado.replace(/_/g, " ")}</span>
+                        <span className={`admin-lead-status status-${lead.estado}`}>{leadStatusLabels[lead.estado]}</span>
                       </div>
                     ))}
                   </>
@@ -615,7 +716,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
                 <article className="payment-row" key={lead.id}>
                   <span><span aria-hidden="true">●</span></span>
                   <p><b>{lead.nombre}{lead.empresa ? ` · ${lead.empresa}` : ""}</b>{lead.email ?? lead.telefono ?? "Sin contacto"} · {lead.servicio} · {new Date(lead.created_at).toLocaleDateString("es-PE")}</p>
-                  <strong>{lead.inversion_estimada == null ? "A cotizar" : `Subtotal publicado: S/ ${formatCurrency(lead.inversion_estimada)}`}</strong>
+                  <strong>{lead.inversion_estimada == null ? "A cotizar" : `Estimado inicial: S/ ${formatCurrency(lead.inversion_estimada)}`}</strong>
                   <select aria-label={`Estado de solicitud ${lead.nombre}`} value={lead.estado} onChange={(event) => {
                     if (!session) return;
                     void runAction(async () => {
@@ -623,7 +724,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
                       setLeads((items) => items.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
                     }, "Estado de solicitud actualizado.", "solicitudes");
                   }}>
-                    {["nuevo", "contactado", "cotizado", "ganado", "perdido"].map((state) => <option key={state} value={state}>{state}</option>)}
+                    {(["nuevo", "contactado", "cotizado", "ganado", "perdido"] as AdminLead["estado"][]).map((state) => <option key={state} value={state}>{leadStatusLabels[state]}</option>)}
                   </select>
                   <button className="button button-secondary" type="button" onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}>
                     {expandedLeadId === lead.id ? "Cerrar" : "Cotizaciones"}
@@ -632,10 +733,10 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
                     if (!session || !window.confirm(`¿Crear el acceso de cliente para ${lead.email}?`)) return;
                     void runAction(async () => {
                       await convertAdminLeadToClient(session.token, lead.id);
-                    }, "Acceso de cliente creado. Define su contraseña con el comando client:password.", "solicitudes");
+                    }, "Acceso de cliente creado. Abre la pestaña Clientes para asignar una contraseña segura.", "solicitudes");
                   }}>Crear acceso cliente</button>}
-                  {lead.client && <span className="form-status success">Acceso de cliente creado</span>}
-                  {lead.mensaje && <p className="form-status">{lead.mensaje}</p>}
+                  {lead.client && <span className="form-status success">Cuenta creada; administra su contraseña desde la pestaña Clientes.</span>}
+                  {lead.mensaje && <p className="form-status admin-lead-notes">{lead.mensaje}</p>}
                   {expandedLeadId === lead.id && (
                     <div className="portal-panel">
                       <h3>Propuestas de {lead.nombre}</h3>
@@ -645,15 +746,30 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
                           <p><b>{quote.servicio}</b>{quote.descripcion}</p>
                           <strong>{quote.estado === "borrador" && Number(quote.monto) === 0 ? "A cotizar" : `S/ ${formatCurrency(quote.monto)}`}</strong>
                           <select aria-label={`Estado cotización ${quote.servicio}`} value={quote.estado} onChange={(event) => void changeQuoteStatus(quote, event.target.value as AdminQuote["estado"])}>
-                            {["borrador", "enviada", "aceptada", "rechazada"].map((state) => <option key={state} value={state}>{state}</option>)}
+                            {(["borrador", "enviada", "aceptada", "rechazada"] as AdminQuote["estado"][]).map((state) => <option key={state} value={state}>{quoteStatusLabels[state]}</option>)}
                           </select>
+                          {quote.estado === "borrador" && <button className="button button-secondary" type="button" onClick={() => editQuote(quote)}>Editar precio y alcance</button>}
+                          {quote.estado === "enviada" && <button className="button button-secondary" type="button" onClick={() => void resendQuote(quote)}>Reenviar correo</button>}
                         </div>
                       ))}
+                      {quoteEditDraft.id !== null && lead.cotizaciones.some((quote) => quote.id === quoteEditDraft.id) && (
+                        <form className="auth-form" onSubmit={(event) => {
+                          const quote = lead.cotizaciones.find((item) => item.id === quoteEditDraft.id);
+                          if (quote) void submitQuoteEdit(event, quote);
+                        }}>
+                          <h3>Editar cotización</h3>
+                          <label>Servicio<input required maxLength={255} value={quoteEditDraft.servicio} onChange={(event) => setQuoteEditDraft({ ...quoteEditDraft, servicio: event.target.value })} /></label>
+                          <label>Alcance del proyecto<textarea required maxLength={5000} value={quoteEditDraft.descripcion} onChange={(event) => setQuoteEditDraft({ ...quoteEditDraft, descripcion: event.target.value })} /></label>
+                          <label>Monto confirmado (S/)<input required type="number" min="0.01" step="0.01" value={quoteEditDraft.monto} onChange={(event) => setQuoteEditDraft({ ...quoteEditDraft, monto: event.target.value })} /></label>
+                          <button className="button" type="submit">Guardar precio y alcance</button>
+                          <button className="button button-secondary" type="button" onClick={() => setQuoteEditDraft({ id: null, servicio: "", descripcion: "", monto: "" })}>Cancelar</button>
+                        </form>
+                      )}
                       {lead.cotizaciones.length === 0 && <p>Aún no hay cotizaciones.</p>}
                       <form className="auth-form" onSubmit={(event) => void submitQuote(event, lead)}>
                         <h3>Nueva cotización</h3>
                         <label>Servicio<input required maxLength={255} value={quoteDraft.servicio} onChange={(event) => setQuoteDraft({ ...quoteDraft, servicio: event.target.value })} /></label>
-                        <label>Descripción<textarea maxLength={2000} value={quoteDraft.descripcion} onChange={(event) => setQuoteDraft({ ...quoteDraft, descripcion: event.target.value })} /></label>
+                        <label>Alcance del proyecto<textarea required maxLength={5000} value={quoteDraft.descripcion} onChange={(event) => setQuoteDraft({ ...quoteDraft, descripcion: event.target.value })} /></label>
                         <label>Monto (S/)<input required type="number" min="0" step="0.01" value={quoteDraft.monto} onChange={(event) => setQuoteDraft({ ...quoteDraft, monto: event.target.value })} /></label>
                         <button className="button" type="submit">Crear cotización</button>
                       </form>
@@ -663,6 +779,8 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           )}
+
+          {tab === "clientes" && <AdminClients token={session.token} refreshKey={clientRefreshKey} />}
 
           {tab === "proyectos" && (
             <div className="portal-panel">
@@ -758,7 +876,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
                   </button>}
                   {payment.status === "comprobante_enviado" && (
                     <>
-                      <button className="button" type="button" onClick={() => session && void runAction(() => updateAdminPayment(session.token, payment.id, "pagado"), "Pago verificado.", "pagos")}>Verificar</button>
+                      <button className="button" type="button" onClick={() => void verifyPayment(payment)}>Verificar y generar recibo</button>
                       <button className="button button-secondary" type="button" onClick={() => session && void runAction(() => updateAdminPayment(session.token, payment.id, "rechazado"), "Pago rechazado.", "pagos")}>Rechazar</button>
                     </>
                   )}
@@ -911,7 +1029,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
                     {field.type === "checkbox" ? (
                       <input type="checkbox" checked={Boolean(catalogDraft[field.name])} onChange={(event) => setCatalogDraft({ ...catalogDraft, [field.name]: event.target.checked })} />
                     ) : field.type === "textarea" ? (
-                      <textarea required={!["descripcion", "descripcion_larga", "incluye"].includes(field.name)} value={String(catalogDraft[field.name] ?? "")} onChange={(event) => setCatalogDraft({ ...catalogDraft, [field.name]: event.target.value })} />
+                      <textarea required={!["descripcion", "descripcion_larga", "incluye", "desafio", "solucion", "entregables", "tecnologias"].includes(field.name)} value={String(catalogDraft[field.name] ?? "")} onChange={(event) => setCatalogDraft({ ...catalogDraft, [field.name]: event.target.value })} />
                     ) : field.type === "select" ? (
                       <select value={String(catalogDraft[field.name] ?? "")} onChange={(event) => setCatalogDraft({
                         ...catalogDraft,
@@ -1010,7 +1128,7 @@ function AdminPortal({ onClose }: { onClose: () => void }) {
         </div>
         <nav className="portal-mobile-nav">
           {tabs.map((item) => (
-            <button key={item.id} type="button" className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}>{item.icon === "grid" ? "▦" : item.icon === "message" ? "✉" : item.icon === "spark" ? "✦" : item.icon === "calendar" ? "▣" : "S/"}{item.label}</button>
+            <button key={item.id} type="button" className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}>{item.icon === "grid" ? "▦" : item.icon === "message" ? "✉" : item.icon === "spark" ? "✦" : item.icon === "calendar" ? "▣" : item.icon === "money" ? "S/" : item.icon === "user" ? "♙" : "▤"}{item.label}</button>
           ))}
         </nav>
       </main>

@@ -2,16 +2,19 @@ import { useEffect, useState, type FormEvent } from "react";
 import {
   downloadStoreOrderReceipt,
   deactivateAdminStoreProduct,
+  deleteAdminStoreCoupon,
   deleteAdminStoreProductImage,
   getAdminStore,
   recordAdminStockMovement,
   saveAdminStoreProduct,
+  saveAdminStoreCoupon,
   updateAdminStoreOrder,
   updateAdminStorePaymentStatus,
   updateAdminStoreReturn,
   uploadAdminStoreProductImage,
   type AdminStoreData,
   type StoreOrder,
+  type StoreCoupon,
   type StoreProduct,
   type StoreReturnRequest,
 } from "./lib/api";
@@ -37,6 +40,13 @@ export default function AdminLogistics({ token }: { token: string }) {
   const [movementDrafts, setMovementDrafts] = useState<Record<number, { tipo: "entrada" | "salida"; cantidad: string; motivo: string }>>({});
   const [orderDrafts, setOrderDrafts] = useState<Record<number, { tracking: string; operation: "in-house" | "3PL"; operator: string }>>({});
   const [returnDrafts, setReturnDrafts] = useState<Record<number, { resolution: "reventa" | "reparacion" | "desecho" | "reembolso"; notes: string }>>({});
+  const [couponEditing, setCouponEditing] = useState<number | null>(null);
+  const [couponDraft, setCouponDraft] = useState({
+    code: "",
+    discount_type: "percentage" as StoreCoupon["discount_type"],
+    discount_value: "10",
+    active: true,
+  });
 
   const refresh = async () => {
     setLoading(true);
@@ -98,6 +108,29 @@ export default function AdminLogistics({ token }: { token: string }) {
       punto_reorden: String(product.punto_reorden),
       ubicacion_almacen: product.ubicacion_almacen ?? "",
     });
+  };
+
+  const startCouponEdit = (coupon: StoreCoupon) => {
+    setCouponEditing(coupon.id);
+    setCouponDraft({
+      code: coupon.code,
+      discount_type: coupon.discount_type,
+      discount_value: String(coupon.discount_value),
+      active: coupon.active,
+    });
+  };
+
+  const submitCoupon = async (event: FormEvent) => {
+    event.preventDefault();
+    await run(async () => {
+      await saveAdminStoreCoupon(token, couponEditing, {
+        ...couponDraft,
+        code: couponDraft.code.trim().toUpperCase(),
+        discount_value: Number(couponDraft.discount_value),
+      });
+      setCouponEditing(null);
+      setCouponDraft({ code: "", discount_type: "percentage", discount_value: "10", active: true });
+    }, couponEditing === null ? "Cupón creado." : "Cupón actualizado.");
   };
 
   const advanceOrder = async (order: StoreOrder) => {
@@ -191,7 +224,7 @@ export default function AdminLogistics({ token }: { token: string }) {
             <label>SKU<input required maxLength={80} value={productDraft.sku} onChange={(event) => setProductDraft({ ...productDraft, sku: event.target.value })} /></label>
             <label>Nombre<input required maxLength={180} value={productDraft.nombre} onChange={(event) => setProductDraft({ ...productDraft, nombre: event.target.value })} /></label>
             <label>Categoría (opcional)<input maxLength={120} value={productDraft.categoria} onChange={(event) => setProductDraft({ ...productDraft, categoria: event.target.value })} /></label>
-            <label>Precio (S/)<input type="number" min="0" step="0.01" required value={productDraft.precio} onChange={(event) => setProductDraft({ ...productDraft, precio: event.target.value })} /></label>
+            <label>Precio antes de IGV (S/)<input type="number" min="0" step="0.01" required value={productDraft.precio} onChange={(event) => setProductDraft({ ...productDraft, precio: event.target.value })} /></label>
             {editing === null && <label>Stock inicial<input type="number" min="0" required value={productDraft.stock} onChange={(event) => setProductDraft({ ...productDraft, stock: event.target.value })} /></label>}
             <label>Punto de reorden<input type="number" min="0" required value={productDraft.punto_reorden} onChange={(event) => setProductDraft({ ...productDraft, punto_reorden: event.target.value })} /></label>
             <label>Ubicación (zona / pasillo / estante / nivel)<input maxLength={120} placeholder="A / 03 / 02 / 01" value={productDraft.ubicacion_almacen} onChange={(event) => setProductDraft({ ...productDraft, ubicacion_almacen: event.target.value })} /></label>
@@ -247,6 +280,31 @@ export default function AdminLogistics({ token }: { token: string }) {
       </section>
 
       <section className="portal-panel">
+        <div className="panel-head"><div><h2>Cupones de descuento</h2><p>Los descuentos se aplican al subtotal de productos antes de calcular el IGV.</p></div></div>
+        <form className="auth-form" onSubmit={(event) => void submitCoupon(event)}>
+          <h3>{couponEditing === null ? "Crear cupón" : `Editar ${couponDraft.code}`}</h3>
+          <div className="quote-fields">
+            <label>Código<input required maxLength={32} pattern="[A-Za-z0-9_-]+" value={couponDraft.code} onChange={(event) => setCouponDraft({ ...couponDraft, code: event.target.value.toUpperCase() })} /></label>
+            <label>Tipo de descuento<select value={couponDraft.discount_type} onChange={(event) => setCouponDraft({ ...couponDraft, discount_type: event.target.value as StoreCoupon["discount_type"] })}><option value="percentage">Porcentaje</option><option value="fixed">Monto fijo (S/)</option></select></label>
+            <label>{couponDraft.discount_type === "percentage" ? "Porcentaje (%)" : "Monto (S/)"}<input type="number" min="0.01" max={couponDraft.discount_type === "percentage" ? "100" : "99999999"} step="0.01" required value={couponDraft.discount_value} onChange={(event) => setCouponDraft({ ...couponDraft, discount_value: event.target.value })} /></label>
+            <label className="admin-store-coupon-active"><input type="checkbox" checked={couponDraft.active} onChange={(event) => setCouponDraft({ ...couponDraft, active: event.target.checked })} /> Cupón activo</label>
+          </div>
+          <div className="quote-nav">
+            {couponEditing !== null && <button className="button button-secondary" type="button" onClick={() => { setCouponEditing(null); setCouponDraft({ code: "", discount_type: "percentage", discount_value: "10", active: true }); }}>Cancelar</button>}
+            <button className="button" type="submit" disabled={busy}>{busy ? "Guardando..." : "Guardar cupón"}</button>
+          </div>
+        </form>
+        {data.coupons.map((coupon) => <article className="payment-row" key={coupon.id}>
+          <span>{coupon.active ? "✓" : "—"}</span>
+          <p><b>{coupon.code}</b>{coupon.discount_type === "percentage" ? `${money(coupon.discount_value)}% de descuento` : `S/ ${money(coupon.discount_value)} de descuento`}{coupon.starts_at && ` · Desde ${new Date(coupon.starts_at).toLocaleDateString("es-PE")}`}{coupon.expires_at && ` · Hasta ${new Date(coupon.expires_at).toLocaleDateString("es-PE")}`}</p>
+          <i className={coupon.active ? "pagado" : "pendiente"}>{coupon.active ? "Activo" : "Inactivo"}</i>
+          <button className="button button-secondary" type="button" onClick={() => startCouponEdit(coupon)}>Editar</button>
+          <button type="button" disabled={busy} onClick={() => window.confirm(`¿Eliminar el cupón ${coupon.code}?`) && void run(() => deleteAdminStoreCoupon(token, coupon.id), "Cupón eliminado.")}>Eliminar</button>
+        </article>)}
+        {data.coupons.length === 0 && <p>No hay cupones creados.</p>}
+      </section>
+
+      <section className="portal-panel">
         <div className="panel-head"><div><h2>Pedidos y fulfillment</h2><p>Recibido → En picking → Empacado → Enviado → Entregado.</p></div></div>
         {data.orders.length === 0 && <p>No hay pedidos todavía. Los pedidos de la tienda aparecerán aquí.</p>}
         {data.orders.map((order) => {
@@ -269,6 +327,7 @@ export default function AdminLogistics({ token }: { token: string }) {
             <article className="payment-row" key={order.id}>
               <span>#{order.id}</span>
               <p><b>{order.client?.nombre ?? "Cliente"} · {order.estado.replace(/_/g, " ")}</b>
+                {order.email_cliente} · {order.telefono_cliente} · {order.tipo_documento?.toUpperCase()} {order.numero_documento} · {order.tipo_comprobante}{order.empresa_facturacion ? ` · ${order.empresa_facturacion}` : ""}
                 Envío {order.metodo_envio} · {order.tipo_operacion}{order.operador_logistico ? ` (${order.operador_logistico})` : ""} · Rastreo: {order.codigo_rastreo ?? "Pendiente"} · {order.ubicacion_entrega}, {order.direccion_entrega}
               </p>
               <strong>S/ {money(order.total)}</strong>

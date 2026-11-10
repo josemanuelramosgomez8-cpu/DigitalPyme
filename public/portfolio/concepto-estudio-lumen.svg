@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" fill="none">
+  <rect width="1200" height="800" fill="#F1EEF8"/>
+  <rect x="74" y="52" width="1052" height="696" rx="28" fill="#FFFEFC" stroke="#E1DDEE" stroke-width="2"/>
+  <path d="M102 53H1098C1113.46 53 1126 65.536 1126 81V152H74V81C74 65.536 86.536 53 102 53Z" fill="#27243D"/>
+  <circle cx="119" cy="102" r="20" fill="#E8DDFB"/><path d="M112 111L119 91L126 111L119 106L112 111Z" fill="#7465A5"/>
+  <text x="153" y="111" fill="#FFFEFC" font-family="Georgia, serif" font-size="27">estudio lumen</text>
+  <text x="810" y="109" fill="#E1DDEE" font-family="Arial, sans-serif" font-size="17">Servicios</text>
+  <text x="907" y="109" fill="#E1DDEE" font-family="Arial, sans-serif" font-size="17">El estudio</text>
+  <rect x="1008" y="82" width="91" height="42" rx="21" fill="#E8DDFB"/>
+  <text x="1021" y="109" fill="#27243D" font-family="Arial, sans-serif" font-size="14" font-weight="700">Hablemos</text>
+  <text x="138" y="223" fill="#7465A5" font-family="Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="3">ESTRATEGIA, DISEÑO Y ACOMPAÑAMIENTO</text>
+  <text x="138" y="296" fill="#27243D" font-family="Georgia, serif" font-size="52">Ideas claras.</text>
+  <text x="138" y="354" fill="#7465A5" font-family="Georgia, serif" font-size="52">Marcas con propósito.</text>
+  <text x="140" y="399" fill="#747184" font-family="Arial, sans-serif" font-size="18">Un concepto de web para presentar servicios profesionales.</text>
+  <rect x="140" y="431" width="169" height="48" rx="8" fill="#27243D"/>
+  <text x="161" y="461" fill="#FFFEFC" font-family="Arial, sans-serif" font-size="15" font-weight="700">Ver servicios</text>
+  <rect x="138" y="530" width="282" height="128" rx="13" fill="#F2EFF8"/>
+  <circle cx="190" cy="570" r="17" fill="#E0D6F4"/><text x="184" y="576" fill="#7465A5" font-family="Arial, sans-serif" font-size="16" font-weight="700">01</text>
+  <text x="223" y="574" fill="#27243D" font-family="Arial, sans-serif" font-size="17" font-weight="700">Estrategia</text>
+  <text x="164" y="618" fill="#747184" font-family="Arial, sans-serif" font-size="14">Objetivos y dirección de marca.</text>
+  <rect x="438" y="530" width="282" height="128" rx="13" fill="#F8F1EB"/>
+  <circle cx="490" cy="570" r="17" fill="#F0DDCE"/><text x="484" y="576" fill="#9A684A" font-family="Arial, sans-serif" font-size="16" font-weight="700">02</text>
+  <text x="523" y="574" fill="#27243D" font-family="Arial, sans-serif" font-size="17" font-weight="700">Diseño digital</text>
+  <text x="464" y="618" fill="#747184" font-family="Arial, sans-serif" font-size="14">Una presencia clara y adaptable.</text>
+  <rect x="738" y="530" width="328" height="128" rx="13" fill="#EEF2EC"/>
+  <circle cx="790" cy="570" r="17" fill="#D9E7D7"/><text x="784" y="576" fill="#547457" font-family="Arial, sans-serif" font-size="16" font-weight="700">03</text>
+  <text x="823" y="574" fill="#27243D" font-family="Arial, sans-serif" font-size="17" font-weight="700">Acompañamiento</text>
+  <text x="764" y="618" fill="#747184" font-family="Arial, sans-serif" font-size="14">Próximos pasos y soporte acordado.</text>
+  <rect x="387" y="686" width="426" height="34" rx="17" fill="#27243D"/>
+  <text x="413" y="709" fill="#FFFEFC" font-family="Arial, sans-serif" font-size="14" font-weight="700">CONCEPTO DE MUESTRA · NO ES UN CLIENTE REAL</text>
+</svg>
