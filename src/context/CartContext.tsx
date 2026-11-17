@@ -20,7 +20,7 @@ export interface CartItem {
   id: string | number
   slug: string
   nombre: string
-  descripcion?: string
+  descripcion?: string | null
   categoria?: string
   precio_desde?: number | null
   duracion?: string | null
@@ -47,7 +47,7 @@ export interface CartContextValue {
   subtotal: number
   hasQuotationOnlyItems: boolean
   formatPrice: (
-    pricePen: number | null | undefined,
+    pricePen: number | string | null | undefined,
     customCurrency?: Currency,
   ) => string
   formatAmount: (amountPen: number, customCurrency?: Currency) => string
@@ -203,12 +203,16 @@ export default function CartProvider({
           (s) => serviceSlug(s) === item.slug || String(s.id) === String(item.id),
         )
         if (found) {
+          const parsedFoundPrice =
+            found.precio_desde != null && found.precio_desde !== ""
+              ? Number(found.precio_desde)
+              : (item.precio_desde ?? null)
           const updated: CartItem = {
             ...item,
             nombre: found.nombre || item.nombre,
             categoria: found.category?.nombre ?? found.categoria ?? item.categoria,
             descripcion: found.descripcion ?? item.descripcion,
-            precio_desde: found.precio_desde ?? item.precio_desde,
+            precio_desde: parsedFoundPrice,
             duracion: found.duracion ?? item.duracion,
             imagen: serviceImage(found) || item.imagen,
           }
@@ -256,16 +260,21 @@ export default function CartProvider({
               : item,
           )
         } else {
+          const parsedPrice =
+            service.precio_desde != null && service.precio_desde !== ""
+              ? Number(service.precio_desde)
+              : null
+
           const newItem: CartItem = {
             id,
             slug,
             nombre: service.nombre,
-            descripcion: service.descripcion,
+            descripcion: service.descripcion ?? null,
             categoria:
               ("category" in service && service.category?.nombre)
                 ? service.category.nombre
                 : service.categoria || "Servicio digital",
-            precio_desde: service.precio_desde ?? null,
+            precio_desde: parsedPrice,
             duracion: service.duracion ?? null,
             imagen:
               "imagen" in service && service.imagen
@@ -353,7 +362,7 @@ export default function CartProvider({
 
   const formatPrice = useCallback(
     (
-      pricePen: number | null | undefined,
+      pricePen: number | string | null | undefined,
       customCurrency?: Currency,
     ): string => {
       if (

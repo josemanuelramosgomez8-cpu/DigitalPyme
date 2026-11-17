@@ -260,7 +260,11 @@ export default function ServiceCart({
                       </div>
                     </div>
                     <strong className="service-cart-price">
-                      {formatPrice(service.precio_desde)}
+                      {formatPrice(
+                        service.precio_desde != null
+                          ? Number(service.precio_desde)
+                          : null,
+                      )}
                     </strong>
                     <button
                       type="button"
@@ -380,7 +384,13 @@ export default function ServiceCart({
                           {service.descripcion ||
                             "Solución digital personalizada para tu negocio."}
                         </p>
-                        <strong>{formatPrice(service.precio_desde)}</strong>
+                        <strong>
+                          {formatPrice(
+                            service.precio_desde != null
+                              ? Number(service.precio_desde)
+                              : null,
+                          )}
+                        </strong>
                         <button
                           className={
                             isSelected ? "button button-secondary" : "button"
@@ -403,7 +413,13 @@ export default function ServiceCart({
               {selectedServices.map((service) => (
                 <div className="store-cart-row" key={serviceSlug(service)}>
                   <span>{service.nombre}</span>
-                  <strong>{formatPrice(service.precio_desde)}</strong>
+                  <strong>
+                    {formatPrice(
+                      service.precio_desde != null
+                        ? Number(service.precio_desde)
+                        : null,
+                    )}
+                  </strong>
                 </div>
               ))}
               {selectedServices.length === 0 && (

@@ -304,7 +304,11 @@ export default function CatalogoServicios({
                       Inversión referencial:
                     </span>
                     <strong className="text-base font-extrabold text-[#102c2c]">
-                      {formatPrice(service.precio_desde)}
+                      {formatPrice(
+                        service.precio_desde != null
+                          ? Number(service.precio_desde)
+                          : null,
+                      )}
                     </strong>
                   </div>
 
