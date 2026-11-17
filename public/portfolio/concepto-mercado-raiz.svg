@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" fill="none">
+  <rect width="1200" height="800" fill="#F4F0E7"/>
+  <rect x="74" y="52" width="1052" height="696" rx="28" fill="#FFFDF8" stroke="#DED9CE" stroke-width="2"/>
+  <path d="M102 53H1098C1113.46 53 1126 65.536 1126 81V152H74V81C74 65.536 86.536 53 102 53Z" fill="#244537"/>
+  <circle cx="119" cy="104" r="20" fill="#D6E6B1"/>
+  <path d="M112 110C117 92 126 88 131 103C126 118 117 121 112 110Z" fill="#56805C"/>
+  <text x="151" y="113" fill="#FFFDF8" font-family="Arial, sans-serif" font-size="27" font-weight="700">mercado raíz</text>
+  <text x="820" y="109" fill="#E0E9D9" font-family="Arial, sans-serif" font-size="17">Catálogo</text>
+  <text x="914" y="109" fill="#E0E9D9" font-family="Arial, sans-serif" font-size="17">Nosotros</text>
+  <rect x="1010" y="82" width="88" height="42" rx="21" fill="#D6E6B1"/>
+  <text x="1031" y="109" fill="#244537" font-family="Arial, sans-serif" font-size="15" font-weight="700">Tienda</text>
+  <text x="130" y="221" fill="#71866D" font-family="Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="3">BUENO PARA TI, CERCA DE TI</text>
+  <text x="130" y="292" fill="#244537" font-family="Georgia, serif" font-size="52">Elige natural.</text>
+  <text x="130" y="347" fill="#244537" font-family="Georgia, serif" font-size="52">Elige local.</text>
+  <text x="132" y="392" fill="#67746A" font-family="Arial, sans-serif" font-size="18">Un concepto de tienda para descubrir productos de cada día.</text>
+  <rect x="132" y="426" width="158" height="48" rx="8" fill="#244537"/>
+  <text x="154" y="456" fill="#FFFDF8" font-family="Arial, sans-serif" font-size="15" font-weight="700">Explorar tienda</text>
+  <text x="132" y="539" fill="#244537" font-family="Georgia, serif" font-size="28">Favoritos de temporada</text>
+  <g>
+    <rect x="132" y="565" width="286" height="137" rx="14" fill="#EFF2E7"/>
+    <circle cx="196" cy="631" r="39" fill="#D6E6B1"/><circle cx="193" cy="627" r="22" fill="#78A46B"/><path d="M192 603C201 588 218 591 220 602C207 605 201 610 198 617Z" fill="#416D4E"/>
+    <text x="250" y="619" fill="#244537" font-family="Arial, sans-serif" font-size="16" font-weight="700">Canasta de estación</text>
+    <text x="250" y="648" fill="#67746A" font-family="Arial, sans-serif" font-size="14">Selección ilustrativa</text>
+    <text x="250" y="675" fill="#56805C" font-family="Arial, sans-serif" font-size="15" font-weight="700">Ver productos</text>
+  </g>
+  <g>
+    <rect x="440" y="565" width="286" height="137" rx="14" fill="#F4EEE0"/>
+    <circle cx="504" cy="631" r="39" fill="#E8D8B7"/><path d="M480 640C489 617 509 610 529 624C523 646 506 658 480 640Z" fill="#75945C"/><path d="M505 619C509 602 525 598 536 609C530 621 520 627 505 619Z" fill="#B77447"/>
+    <text x="558" y="619" fill="#244537" font-family="Arial, sans-serif" font-size="16" font-weight="700">Despensa natural</text>
+    <text x="558" y="648" fill="#67746A" font-family="Arial, sans-serif" font-size="14">Diseño conceptual</text>
+    <text x="558" y="675" fill="#56805C" font-family="Arial, sans-serif" font-size="15" font-weight="700">Ver productos</text>
+  </g>
+  <g>
+    <rect x="748" y="565" width="318" height="137" rx="14" fill="#E9EFE9"/>
+    <circle cx="812" cy="631" r="39" fill="#D5E4D6"/><path d="M788 637C790 616 807 605 822 615C824 636 808 650 788 637Z" fill="#548064"/><path d="M811 646C817 625 837 623 845 637C835 652 824 658 811 646Z" fill="#89A966"/>
+    <text x="866" y="619" fill="#244537" font-family="Arial, sans-serif" font-size="16" font-weight="700">Cuidado diario</text>
+    <text x="866" y="648" fill="#67746A" font-family="Arial, sans-serif" font-size="14">Maqueta de catálogo</text>
+    <text x="866" y="675" fill="#56805C" font-family="Arial, sans-serif" font-size="15" font-weight="700">Ver productos</text>
+  </g>
+  <rect x="448" y="722" width="304" height="34" rx="17" fill="#244537"/>
+  <text x="474" y="745" fill="#FFFDF8" font-family="Arial, sans-serif" font-size="14" font-weight="700">CONCEPTO DE MUESTRA · NO ES UN CLIENTE REAL</text>
+</svg>

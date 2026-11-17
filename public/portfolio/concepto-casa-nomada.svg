@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" fill="none">
+  <rect width="1200" height="800" fill="#E9F0EF"/>
+  <rect x="74" y="52" width="1052" height="696" rx="28" fill="#FAFCF9" stroke="#D3E0DC" stroke-width="2"/>
+  <path d="M102 53H1098C1113.46 53 1126 65.536 1126 81V152H74V81C74 65.536 86.536 53 102 53Z" fill="#203B43"/>
+  <path d="M112 112L132 92L151 112V132H112V112Z" fill="#D6B887"/><path d="M108 112L132 87L156 112" stroke="#F2EADC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="171" y="116" fill="#FFFDF8" font-family="Georgia, serif" font-size="27">casa nómada</text>
+  <text x="806" y="109" fill="#DBE6E0" font-family="Arial, sans-serif" font-size="17">El refugio</text>
+  <text x="909" y="109" fill="#DBE6E0" font-family="Arial, sans-serif" font-size="17">Experiencias</text>
+  <rect x="1011" y="82" width="88" height="42" rx="21" fill="#E1C99D"/>
+  <text x="1027" y="109" fill="#203B43" font-family="Arial, sans-serif" font-size="14" font-weight="700">Consultar</text>
+  <rect x="104" y="183" width="992" height="315" rx="18" fill="#B8C7B4"/>
+  <path d="M104 429L354 261L519 377L691 236L1096 463V498H104V429Z" fill="#869D8A"/>
+  <path d="M104 452L387 325L616 454L842 316L1096 421V498H104V452Z" fill="#637E70"/>
+  <rect x="698" y="336" width="224" height="162" rx="5" fill="#E8D8B8"/>
+  <path d="M670 346L810 237L950 346H670Z" fill="#795B46"/>
+  <rect x="727" y="371" width="63" height="74" rx="3" fill="#A8C0B9"/>
+  <rect x="817" y="371" width="77" height="127" rx="3" fill="#F6F0E3"/>
+  <path d="M779 498V451H841V498" fill="#AC805D"/>
+  <circle cx="992" cy="250" r="37" fill="#F2DCA6"/>
+  <text x="148" y="246" fill="#FFFDF8" font-family="Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="3">UN LUGAR PARA DESCONECTAR</text>
+  <text x="148" y="307" fill="#FFFDF8" font-family="Georgia, serif" font-size="48">Respira. Estás aquí.</text>
+  <rect x="148" y="342" width="174" height="49" rx="7" fill="#F7F1E5"/>
+  <text x="169" y="373" fill="#203B43" font-family="Arial, sans-serif" font-size="15" font-weight="700">Conoce el espacio</text>
+  <rect x="132" y="530" width="936" height="116" rx="14" fill="#F0F4EF" stroke="#DEE6DD"/>
+  <text x="166" y="570" fill="#203B43" font-family="Georgia, serif" font-size="24">Una pausa entre naturaleza y calma</text>
+  <text x="166" y="606" fill="#687A72" font-family="Arial, sans-serif" font-size="15">Maqueta de presentación · Galería · Características · Consulta de fechas</text>
+  <rect x="830" y="551" width="203" height="52" rx="8" fill="#203B43"/>
+  <text x="860" y="583" fill="#FFFDF8" font-family="Arial, sans-serif" font-size="15" font-weight="700">Consultar fechas</text>
+  <rect x="387" y="686" width="426" height="34" rx="17" fill="#203B43"/>
+  <text x="413" y="709" fill="#FFFDF8" font-family="Arial, sans-serif" font-size="14" font-weight="700">CONCEPTO DE MUESTRA · NO ES UN CLIENTE REAL</text>
+</svg>
