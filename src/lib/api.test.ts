@@ -239,6 +239,8 @@ describe("API client", () => {
       tipo_documento: "dni" as const,
 
       numero_documento: "12345678",
+
+      acepta_politicas: true,
     }
 
     await expect(createStoreOrder("client-token", payload))

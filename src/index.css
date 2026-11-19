@@ -848,6 +848,10 @@ h1, h2, h3, blockquote, .main-card > strong, .quote-mark, .quote-result > strong
 .legal-dialog { position: relative; width: min(560px, calc(100% - 32px)); padding: 38px; border-radius: 14px; background: var(--paper); box-shadow: 0 25px 80px rgba(0,0,0,.25); }
 .legal-dialog h2 { margin: 14px 0; font: 400 34px 'DM Serif Display', serif; }
 .legal-dialog p { white-space: pre-wrap; color: var(--ink-2); line-height: 1.7; }
+.legal-page { min-height: 65vh; padding: 72px 0 96px; }
+.legal-page h1 { max-width: 860px; margin: 14px 0 10px; font: 400 clamp(36px, 5vw, 56px)/1.08 var(--font-display), serif; }
+.legal-page-version { color: var(--muted); font-size: 13px; }
+.legal-policy-copy { max-width: 860px; white-space: pre-wrap; color: var(--ink-2); line-height: 1.8; }
 .store-demo { min-height: 100vh; background: var(--cream); }
 .store-demo-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; min-height: 76px; padding: 12px max(24px, calc((100vw - 1180px) / 2)); border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--cream) 94%, transparent); backdrop-filter: blur(12px); }
 .store-demo-header > div { display: flex; align-items: center; gap: 18px; color: var(--muted); font-size: 13px; font-weight: 600; }
@@ -1346,6 +1350,9 @@ h1, h2, h3, blockquote, .main-card > strong, .quote-mark, .quote-result > strong
 .physical-store-summary-row, .physical-store-total-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 11px; }
 .physical-store-summary-row strong, .physical-store-total-row strong { text-align: right; white-space: nowrap; }
 .physical-store-total-row.grand-total { padding-top: 13px; border-bottom: 0; font-size: 16px; font-weight: 700; }
+.physical-store-reminders-consent, .physical-store-legal-consent { display: flex; align-items: flex-start; gap: 9px; color: var(--ink-2); font-size: 11px; line-height: 1.55; }
+.physical-store-reminders-consent input[type="checkbox"], .physical-store-legal-consent input[type="checkbox"] { width: 17px; min-height: 17px; flex: 0 0 17px; margin: 2px 0 0; }
+.physical-store-reminders-consent a, .physical-store-legal-consent a { color: var(--ink); text-decoration: underline; }
 .physical-store-tax-note { color: var(--muted); font-size: 10px; line-height: 1.45; }
 .physical-store-checkout-layout { grid-template-columns: minmax(0, 1fr) 360px; }
 .physical-store-lines, .physical-store-checkout-form { display: grid; gap: 16px; }
@@ -1368,6 +1375,11 @@ h1, h2, h3, blockquote, .main-card > strong, .quote-mark, .quote-result > strong
 .physical-store-form-section > p { color: var(--muted); font-size: 11px; line-height: 1.5; }
 .physical-store-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .physical-store-form-section input:read-only { color: var(--muted); background: #f2f4f1; }
+.physical-store-form-section .physical-store-legal-consent { display: flex; }
+.client-delivery-review { margin: 20px 0; }
+.client-delivery-review label { display: grid; gap: 7px; color: var(--ink-2); font-size: 11px; font-weight: 700; }
+.client-delivery-review textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: white; resize: vertical; }
+.client-delivery-review .portal-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .physical-store-payment-options { display: grid; gap: 9px; }
 .physical-store-payment-options label { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .physical-store-payment-options label.selected { border-color: var(--ink); background: #f3f6ed; }

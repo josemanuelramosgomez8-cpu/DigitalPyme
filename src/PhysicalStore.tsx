@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 
 import {
   clientLogin,
   createStoreOrder,
+  getClientStoreCart,
   getClientStoreProfile,
   getStorePaymentOptions,
   getStoreProducts,
   getStoreShippingOptions,
   getClientStoreOrders,
+  restoreClientStoreCart,
   registerClient,
   startStoreCardPayment,
+  unsubscribeFromStoreCartReminders,
+  updateClientStoreCart,
   uploadStoreOrderReceipt,
   validateStoreCoupon,
   type ClientSession,
@@ -110,6 +114,14 @@ export default function PhysicalStore() {
   )
 
   const [session, setSession] = useState<ClientSession | null>(readSession)
+
+  const [cartLoadedToken, setCartLoadedToken] = useState<string | null>(null)
+
+  const [communicationsConsent, setCommunicationsConsent] = useState(false)
+
+  const communicationsConsentTouched = useRef(false)
+
+  const [legalAccepted, setLegalAccepted] = useState(false)
 
   const [profile, setProfile] = useState<ClientStoreProfile>(emptyProfile)
 
@@ -292,6 +304,70 @@ export default function PhysicalStore() {
   }, [cart])
 
   useEffect(() => {
+    let active = true
+    setCartLoadedToken(null)
+
+    if (!session) return
+
+    getClientStoreCart(session.token)
+      .then((savedCart) => {
+        if (!active) return
+        if (savedCart.items.length > 0) {
+          setCart(
+            Object.fromEntries(
+              savedCart.items.map((item) => [item.product_id, item.cantidad]),
+            ),
+          )
+        }
+        if (!communicationsConsentTouched.current) {
+          setCommunicationsConsent(savedCart.communications_consent)
+        }
+        setCartLoadedToken(session.token)
+      })
+      .catch((cartError: unknown) => {
+        if (!active) return
+        setError(
+          cartError instanceof Error
+            ? `No se pudo cargar el carrito guardado: ${cartError.message}`
+            : "No se pudo cargar el carrito guardado.",
+        )
+        setCartLoadedToken(session.token)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [session])
+
+  useEffect(() => {
+    if (
+      !session ||
+      cartLoadedToken !== session.token ||
+      screen === "confirmation"
+    ) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      updateClientStoreCart(session.token, {
+        items: Object.entries(cart).map(([productId, cantidad]) => ({
+          product_id: Number(productId),
+          cantidad,
+        })),
+        communications_consent: communicationsConsent,
+      }).catch((cartError: unknown) => {
+        setError(
+          cartError instanceof Error
+            ? `No se pudo guardar el carrito: ${cartError.message}`
+            : "No se pudo guardar el carrito.",
+        )
+      })
+    }, 500)
+
+    return () => window.clearTimeout(timer)
+  }, [cart, communicationsConsent, cartLoadedToken, screen, session])
+
+  useEffect(() => {
     if (!session) return
 
     let active = true
@@ -374,6 +450,79 @@ export default function PhysicalStore() {
       screen === "confirmation" ? "Pedido confirmado" : "Tienda"
     } | DigitalPyme`
   }, [screen])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const restorePath = params.get("restore")
+    const unsubscribePath = params.get("unsubscribe")
+    const unsubscribed = params.get("reminders") === "off"
+
+    if (unsubscribed) {
+      setCommunicationsConsent(false)
+
+      communicationsConsentTouched.current = false
+      setNotice("Se registró tu baja de los recordatorios del carrito.")
+    }
+
+    if (unsubscribePath) {
+      let active = true
+      unsubscribeFromStoreCartReminders(unsubscribePath)
+        .then(() => {
+          if (!active) return
+          setCommunicationsConsent(false)
+          setNotice("Se registró tu baja de los recordatorios del carrito.")
+        })
+        .catch((unsubscribeError: unknown) => {
+          if (active) {
+            setError(
+              unsubscribeError instanceof Error
+                ? unsubscribeError.message
+                : "No se pudo registrar la baja.",
+            )
+          }
+        })
+        .finally(() => {
+          if (active) window.history.replaceState({}, "", "/carrito")
+        })
+
+      return () => {
+        active = false
+      }
+    }
+
+    if (!restorePath) return
+
+    let active = true
+    restoreClientStoreCart(restorePath)
+      .then((savedCart) => {
+        if (!active) return
+        setCart(
+          Object.fromEntries(
+            savedCart.items.map((item) => [item.product_id, item.cantidad]),
+          ),
+        )
+        setCommunicationsConsent(savedCart.communications_consent)
+        setNotice("Restauramos tu carrito. Puedes continuar con tu compra.")
+      })
+      .catch((restoreError: unknown) => {
+        if (active) {
+          setError(
+            restoreError instanceof Error
+              ? restoreError.message
+              : "No se pudo restaurar el carrito.",
+          )
+        }
+      })
+      .finally(() => {
+        if (!active) return
+        window.history.replaceState({}, "", "/carrito")
+        setScreen("cart")
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     const syncRoute = () =>
@@ -519,6 +668,8 @@ export default function PhysicalStore() {
       const createdOrder = await createStoreOrder(session.token, {
         items: orderItems,
 
+        acepta_politicas: legalAccepted,
+
         metodo_envio: deliveryMethod,
 
         payment_method: paymentMethod,
@@ -636,6 +787,8 @@ export default function PhysicalStore() {
     setSession(null)
 
     setProfile(emptyProfile)
+
+    setCommunicationsConsent(false)
   }
 
   const availablePaymentMethods = paymentOptions
@@ -1012,6 +1165,23 @@ export default function PhysicalStore() {
                 El costo de envío puede variar según la ubicación y el método
                 elegido.
               </p>
+              <label className="physical-store-reminders-consent">
+                <input
+                  type="checkbox"
+                  checked={communicationsConsent}
+                  onChange={(event) =>
+                    {
+                      setCommunicationsConsent(event.target.checked)
+                      communicationsConsentTouched.current = true
+                    }
+                  }
+                />
+                <span>
+                  Quiero recibir hasta 3 recordatorios por correo sobre este
+                  carrito. Puedo darme de baja cuando quiera.{" "}
+                  <a href="/legal/privacidad">Ver política de privacidad</a>.
+                </span>
+              </label>
               <button
                 className="button"
                 type="button"
@@ -1328,6 +1498,33 @@ export default function PhysicalStore() {
                         ))}
                       </div>
                     )}
+                  </section>
+                  <section className="physical-store-form-section">
+                    <label className="physical-store-legal-consent">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={legalAccepted}
+                        onChange={(event) =>
+                          setLegalAccepted(event.target.checked)
+                        }
+                      />
+                      <span>
+                        He leído y acepto los{" "}
+                        <a href="/legal/terminos-y-condiciones" target="_blank">
+                          Términos y condiciones
+                        </a>
+                        ,{" "}
+                        <a href="/legal/pagos-y-facturacion" target="_blank">
+                          Pagos y facturación
+                        </a>{" "}
+                        y la{" "}
+                        <a href="/legal/privacidad" target="_blank">
+                          Política de privacidad
+                        </a>
+                        .
+                      </span>
+                    </label>
                   </section>
                 </>
               )}

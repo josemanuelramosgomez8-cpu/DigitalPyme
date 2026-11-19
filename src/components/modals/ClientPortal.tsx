@@ -14,6 +14,7 @@ import {
   getClientProject,
   getClientProjects,
   registerClient,
+  respondToProjectDelivery,
   startBankTransfer,
   uploadTransferReceipt,
   type ClientPaymentOptions,
@@ -226,6 +227,8 @@ export default function ClientPortal({
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [loginBusy, setLoginBusy] = useState(false)
+  const [deliveryBusy, setDeliveryBusy] = useState(false)
+  const [deliveryComments, setDeliveryComments] = useState("")
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("")
@@ -441,6 +444,50 @@ export default function ClientPortal({
           ? approvalError.message
           : "No se pudo aprobar el hito.",
       )
+    }
+  }
+
+  const respondToDelivery = async (
+    action: "approve" | "request_changes",
+  ) => {
+    if (!session || !selectedProject) return
+    setDeliveryBusy(true)
+    setError("")
+    setNotice("")
+
+    try {
+      const updatedProject = await respondToProjectDelivery(
+        session.token,
+        selectedProject.id,
+        {
+          action,
+          ...(action === "request_changes"
+            ? { comments: deliveryComments.trim() }
+            : {}),
+        },
+      )
+      setSelectedProject(updatedProject)
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === updatedProject.id
+            ? { ...project, estado: updatedProject.estado, progreso: updatedProject.progreso }
+            : project,
+        ),
+      )
+      setDeliveryComments("")
+      setNotice(
+        action === "approve"
+          ? "Entrega aprobada. ¡Gracias por tu confirmación!"
+          : "Registramos tus comentarios y avisamos al equipo de DigitalPyme.",
+      )
+    } catch (deliveryError) {
+      setError(
+        deliveryError instanceof Error
+          ? deliveryError.message
+          : "No se pudo registrar tu respuesta a la entrega.",
+      )
+    } finally {
+      setDeliveryBusy(false)
     }
   }
 
@@ -1478,6 +1525,50 @@ export default function ClientPortal({
                   </div>
                   {activeProject.cotizacion?.descripcion && (
                     <p>{activeProject.cotizacion.descripcion}</p>
+                  )}
+                  {activeProject.estado === "revision" && (
+                    <section
+                      className="portal-panel client-delivery-review"
+                      aria-labelledby="delivery-review-title"
+                    >
+                      <h2 id="delivery-review-title">Revisa la entrega</h2>
+                      <p>
+                        Aprueba el trabajo o indícanos qué ajustes necesitas.
+                      </p>
+                      <label>
+                        Comentarios para solicitar cambios
+                        <textarea
+                          maxLength={2000}
+                          minLength={5}
+                          value={deliveryComments}
+                          onChange={(event) =>
+                            setDeliveryComments(event.target.value)
+                          }
+                        />
+                      </label>
+                      <div className="portal-actions">
+                        <button
+                          className="button"
+                          type="button"
+                          disabled={deliveryBusy}
+                          onClick={() => void respondToDelivery("approve")}
+                        >
+                          Aprobar entrega
+                        </button>
+                        <button
+                          className="button button-secondary"
+                          type="button"
+                          disabled={
+                            deliveryBusy || deliveryComments.trim().length < 5
+                          }
+                          onClick={() =>
+                            void respondToDelivery("request_changes")
+                          }
+                        >
+                          Solicitar cambios
+                        </button>
+                      </div>
+                    </section>
                   )}
                   <div className="timeline">
                     {stages.map((stage, index) => (

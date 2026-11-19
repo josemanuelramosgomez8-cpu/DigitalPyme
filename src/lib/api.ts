@@ -795,6 +795,12 @@ export interface ClientStoreProfile {
   ubicacion_entrega: string | null
 }
 
+export interface ClientStoreCart {
+  items: { product_id: number; cantidad: number }[]
+  currency: "PEN"
+  communications_consent: boolean
+}
+
 export interface AdminStoreData {
   products: StoreProduct[]
 
@@ -885,6 +891,8 @@ export interface SiteSettings {
   }
 
   legal: {
+    version: string
+
     privacy: string | null
 
     privacy_published: boolean
@@ -894,8 +902,29 @@ export interface SiteSettings {
     terms: string
 
     returns: string
+
+    payments: string
+
+    revisions: string
+
+    intellectual_property: string
+
+    promotions: string
+
+    complaints_url: string | null
   }
 }
+
+export type LegalKind =
+  | "privacy"
+  | "warranty"
+  | "terms"
+  | "payments"
+  | "returns"
+  | "revisions"
+  | "intellectual_property"
+  | "promotions"
+  | "complaints"
 
 export interface CoverageResult {
   servicio_digital: {
@@ -987,14 +1016,30 @@ export const defaultSiteSettings: SiteSettings = {
 
     privacy_published: false,
 
+    version: "2026-11-19",
+
     warranty:
       "La garantía y el alcance del soporte se detallan en cada propuesta aprobada. Antes de contratar, confirma por escrito las condiciones aplicables a tu proyecto.",
 
     terms:
-      "Las propuestas describen alcance, plazos, entregables y condiciones de pago. El trabajo comienza después de la aceptación formal de la propuesta. Los pagos se gestionan desde el Portal cliente.",
+      "Estas condiciones describen el uso del sitio y la contratación de DigitalPyme. Las propuestas aprobadas detallan alcance, entregables, plazos y pagos. [REVISAR LEGAL]",
 
     returns:
       "Puedes solicitar la devolución de un pedido entregado desde el Portal cliente e indicar el motivo. El equipo revisará la solicitud y te informará si fue aprobada. La resolución puede ser reventa, reparación, desecho o reembolso, según la inspección y las condiciones aplicables.",
+
+    payments:
+      "Los medios y monedas disponibles se muestran antes de confirmar la compra. Los pagos manuales quedan pendientes hasta revisar el comprobante. [REVISAR LEGAL]",
+
+    revisions:
+      "Las revisiones, entregables y fechas se detallan en la propuesta aceptada. [REVISAR LEGAL]",
+
+    intellectual_property:
+      "La titularidad o licencia de uso de los entregables se determina en la propuesta aceptada. [REVISAR LEGAL]",
+
+    promotions:
+      "Toda promoción debe indicar vigencia, servicios incluidos y restricciones. Ejemplo referencial: Navidad 20 % OFF. [REVISAR LEGAL]",
+
+    complaints_url: null,
   },
 }
 
@@ -1488,6 +1533,18 @@ export function approveProjectMilestone(
   )
 }
 
+export function respondToProjectDelivery(
+  token: string,
+  projectId: number,
+  payload: { action: "approve" | "request_changes"; comments?: string },
+): Promise<ClientProject> {
+  return clientRequest(`client/projects/${projectId}/delivery-response`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+}
+
 export function downloadProjectFile(
   token: string,
   projectId: number,
@@ -1597,6 +1654,8 @@ export function createStoreOrder(
     tipo_operacion?: "in-house" | "3PL"
 
     operador_logistico?: string
+
+    acepta_politicas: boolean
   },
 ): Promise<StoreOrder> {
   return clientRequest("client/store/orders", token, {
@@ -1606,6 +1665,60 @@ export function createStoreOrder(
 
     body: JSON.stringify(payload),
   })
+}
+
+export function getClientStoreCart(token: string): Promise<ClientStoreCart> {
+  return clientRequest("client/store/cart", token)
+}
+
+export function updateClientStoreCart(
+  token: string,
+  payload: {
+    items: { product_id: number; cantidad: number }[]
+    communications_consent: boolean
+  },
+): Promise<{ cart_id: number; currency: "PEN"; communications_consent: boolean }> {
+  return clientRequest("client/store/cart", token, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function restoreClientStoreCart(
+  signedPath: string,
+): Promise<ClientStoreCart> {
+  const apiBase = new URL(API_URL, window.location.origin)
+  const url = new URL(signedPath, apiBase.origin)
+  if (!url.pathname.includes("/store/carts/") || !url.pathname.endsWith("/restore")) {
+    throw new Error("El enlace de restauración del carrito no es válido.")
+  }
+
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+  })
+  const data = await parseJson(response)
+  if (!response.ok) throw new Error(errorMessage(response, data))
+
+  return data as ClientStoreCart
+}
+
+export async function unsubscribeFromStoreCartReminders(
+  signedPath: string,
+): Promise<{ mensaje: string }> {
+  const apiBase = new URL(API_URL, window.location.origin)
+  const url = new URL(signedPath, apiBase.origin)
+  if (!url.pathname.includes("/store/carts/") || !url.pathname.endsWith("/unsubscribe")) {
+    throw new Error("El enlace de baja no es válido.")
+  }
+
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+  })
+  const data = await parseJson(response)
+  if (!response.ok) throw new Error(errorMessage(response, data))
+
+  return data as { mensaje: string }
 }
 
 export function validateStoreCoupon(
