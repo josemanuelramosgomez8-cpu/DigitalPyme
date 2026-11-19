@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 import {
   HERO_SLIDES,
   type CleanHeroSlide,
@@ -218,6 +218,9 @@ export default function HeroCarousel({ onQuote }: HeroCarouselProps) {
   const { currency, setCurrency } = useCart()
   const [isPaused, setIsPaused] = useState<boolean>(false)
   const [autoplay, setAutoplay] = useState<boolean>(true)
+  const [videoMuted, setVideoMuted] = useState<boolean>(false)
+  const foregroundVideoRef = useRef<HTMLVideoElement | null>(null)
+  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null)
   const [reducedMotion, setReducedMotion] = useState<boolean>(
     () =>
       typeof window !== "undefined" &&
@@ -234,6 +237,39 @@ export default function HeroCarousel({ onQuote }: HeroCarouselProps) {
     mediaQuery.addEventListener("change", onChange)
     return () => mediaQuery.removeEventListener("change", onChange)
   }, [])
+
+  useEffect(() => {
+    const foregroundVideo = foregroundVideoRef.current
+    const backgroundVideo = backgroundVideoRef.current
+
+    if (!foregroundVideo) return
+
+    foregroundVideo.muted = videoMuted
+    if (backgroundVideo) backgroundVideo.muted = true
+
+    if (currentSlide.video) {
+      void foregroundVideo.play().catch(() => {
+        foregroundVideo.muted = true
+        setVideoMuted(true)
+      })
+    }
+  }, [videoMuted, currentSlide.video])
+
+  const toggleVideoSound = () => {
+    setVideoMuted((muted) => {
+      const nextMuted = !muted
+      const foregroundVideo = foregroundVideoRef.current
+      const backgroundVideo = backgroundVideoRef.current
+
+      if (foregroundVideo) {
+        foregroundVideo.muted = nextMuted
+        void foregroundVideo.play().catch(() => {})
+      }
+      if (backgroundVideo) backgroundVideo.muted = true
+
+      return nextMuted
+    })
+  }
 
   const goToNext = useCallback(() => {
     setActiveSlide((prev) => (prev + 1) % slideCount)
@@ -291,6 +327,38 @@ export default function HeroCarousel({ onQuote }: HeroCarouselProps) {
         className="relative w-full overflow-hidden transition-all duration-700 shadow-md border-y border-stone-900/10 flex items-center min-h-[420px] lg:min-h-[460px]"
         style={{ background: currentSlide.theme.bgGradient }}
       >
+        {currentSlide.video && (
+          <>
+            <video
+              key={`background-${currentSlide.video}`}
+              ref={backgroundVideoRef}
+              src={currentSlide.video}
+              className="absolute inset-0 h-full w-full scale-105 object-cover object-center opacity-60 blur-sm"
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-hidden="true"
+            />
+            <video
+              key={`foreground-${currentSlide.video}`}
+              ref={foregroundVideoRef}
+              src={currentSlide.video}
+              className="absolute inset-0 h-full w-full object-contain object-center"
+              autoPlay
+              muted={videoMuted}
+              loop
+              playsInline
+              preload="metadata"
+              aria-label="Video de presentación de DigitalPyme"
+            />
+            <div
+              className="absolute inset-0 z-10 bg-gradient-to-r from-[#102c2c]/90 via-[#102c2c]/55 to-[#102c2c]/20"
+              aria-hidden="true"
+            />
+          </>
+        )}
+
         {/* Subtle Ambient Studio Glare */}
         <div
           className="absolute inset-0 pointer-events-none opacity-40 mix-blend-overlay"
@@ -422,10 +490,12 @@ export default function HeroCarousel({ onQuote }: HeroCarouselProps) {
 
           {/* Right Column: Device Showcase (Laptop with Payment Gateways) */}
           <div className="lg:col-span-5 flex items-center justify-center">
-            <HeroServiceMockup
-              slide={currentSlide}
-              onQuote={onQuote}
-            />
+            {!currentSlide.video && (
+              <HeroServiceMockup
+                slide={currentSlide}
+                onQuote={onQuote}
+              />
+            )}
           </div>
         </div>
 
@@ -453,6 +523,55 @@ export default function HeroCarousel({ onQuote }: HeroCarouselProps) {
             )
           })}
         </div>
+
+        {currentSlide.video && (
+          <button
+            type="button"
+            onClick={toggleVideoSound}
+            className="absolute bottom-3 right-3 sm:right-6 z-30 h-9 px-3 rounded-full bg-black/55 text-white border border-white/40 backdrop-blur-md flex items-center gap-2 text-xs font-bold hover:bg-black/75 transition-colors cursor-pointer"
+            aria-label={
+              videoMuted
+                ? "Activar sonido del video"
+                : "Silenciar video"
+            }
+            aria-pressed={!videoMuted}
+          >
+            {videoMuted ? (
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"
+                />
+              </svg>
+            )}
+            <span className="hidden sm:inline">
+              {videoMuted ? "Activar sonido" : "Silenciar"}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Bottom Horizontal Service Tabs (Pestañas Inferiores de Servicios) */}
