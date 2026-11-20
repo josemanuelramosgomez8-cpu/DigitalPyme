@@ -2,7 +2,7 @@ import React from "react"
 import Header from "../components/layout/Header"
 import CartDrawer from "../components/cart/CartDrawer"
 import SiteFooter from "../components/layout/SiteFooter"
-import { defaultSiteSettings, type SiteSettings } from "../lib/api"
+import { defaultSiteSettings, type LegalKind, type SiteSettings } from "../lib/api"
 
 export interface MainLayoutProps {
   children: React.ReactNode
@@ -10,7 +10,7 @@ export interface MainLayoutProps {
   onPortal: () => void
   onNavigate: (path: string) => void
   siteSettings?: SiteSettings
-  onOpenLegal?: (kind: "privacy" | "warranty" | "terms" | "returns") => void
+  onOpenLegal?: (kind: LegalKind) => void
   hideFooter?: boolean
 }
 
@@ -20,7 +20,6 @@ export default function MainLayout({
   onPortal,
   onNavigate,
   siteSettings = defaultSiteSettings,
-  onOpenLegal = () => {},
   hideFooter = false,
 }: MainLayoutProps) {
   return (
@@ -51,7 +50,6 @@ export default function MainLayout({
         <SiteFooter
           settings={siteSettings}
           onNavigate={onNavigate}
-          onOpenLegal={onOpenLegal}
         />
       )}
     </div>

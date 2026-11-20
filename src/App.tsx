@@ -12,6 +12,7 @@ import ReviewWall from "./components/home/ReviewWall"
 import PricingPage from "./components/home/PricingPage"
 import ServiceDetail from "./components/home/ServiceDetail"
 import Icon from "./components/common/Icon"
+import LegalPolicyPage from "./components/LegalPolicyPage"
 import {
   demoReviewExamples,
   fallbackServices,
@@ -34,6 +35,7 @@ import {
   type ApiService,
   type ApiTestimonial,
   type ClientSession,
+  type LegalKind,
   type ServiceCategory,
   type ServiceReview,
   type SiteSettings,
@@ -53,6 +55,21 @@ const PortfolioProjectDialog = lazy(
   () => import("./components/modals/PortfolioProjectDialog"),
 )
 const LegalDialog = lazy(() => import("./components/modals/LegalDialog"))
+
+const legalRoutes: Record<string, LegalKind> = {
+  "/legal/privacidad": "privacy",
+  "/legal/terminos-y-condiciones": "terms",
+  "/legal/pagos-y-facturacion": "payments",
+  "/legal/reembolsos-y-cancelaciones": "returns",
+  "/legal/revisiones-y-entregas": "revisions",
+  "/legal/propiedad-intelectual": "intellectual_property",
+  "/legal/promociones": "promotions",
+  "/libro-de-reclamaciones": "complaints",
+}
+
+function getLegalPath(pathname: string): LegalKind | null {
+  return legalRoutes[pathname] ?? null
+}
 
 function PageLoading() {
   return (
@@ -113,6 +130,9 @@ export default function App() {
       window.location.pathname.match(/^\/servicios\/([a-z0-9-]+)$/)?.[1] ??
       null,
   )
+  const [legalPath, setLegalPath] = useState<LegalKind | null>(() =>
+    getLegalPath(window.location.pathname),
+  )
   const [storePath, setStorePath] = useState(() =>
     ["/tienda", "/carrito"].includes(window.location.pathname),
   )
@@ -124,8 +144,7 @@ export default function App() {
   const [pricingPath, setPricingPath] = useState(
     () => window.location.pathname === "/precios",
   )
-  const [legalOpen, setLegalOpen] =
-    useState<"privacy" | "warranty" | "terms" | "returns" | null>(null)
+  const [legalOpen, setLegalOpen] = useState<LegalKind | null>(null)
   const [quoteInitialMessage, setQuoteInitialMessage] = useState("")
 
   const openQuote = (service?: string, message = "") => {
@@ -265,9 +284,9 @@ export default function App() {
   }, [pendingReviewPreviews])
 
   useEffect(() => {
-    if (!servicePath && !storePath && !serviceCartPath && !pricingPath)
+    if (!servicePath && !storePath && !serviceCartPath && !pricingPath && !legalPath)
       applySiteSettings(siteSettings)
-  }, [servicePath, storePath, serviceCartPath, pricingPath, siteSettings])
+  }, [servicePath, storePath, serviceCartPath, pricingPath, legalPath, siteSettings])
 
   const navigateToPath = (path: string) => {
     const destination = path
@@ -276,6 +295,7 @@ export default function App() {
     setServicePath(
       destinationUrl.pathname.match(/^\/servicios\/([a-z0-9-]+)$/)?.[1] ?? null,
     )
+    setLegalPath(getLegalPath(destinationUrl.pathname))
     setStorePath(["/tienda", "/carrito"].includes(destinationUrl.pathname))
     setServiceCartPath(
       ["/catalogo-servicios", "/carrito-servicios"].includes(
@@ -301,6 +321,7 @@ export default function App() {
         window.location.pathname.match(/^\/servicios\/([a-z0-9-]+)$/)?.[1] ??
           null,
       )
+      setLegalPath(getLegalPath(window.location.pathname))
       setStorePath(["/tienda", "/carrito"].includes(window.location.pathname))
       setServiceCartPath(
         ["/catalogo-servicios", "/carrito-servicios"].includes(
@@ -318,7 +339,7 @@ export default function App() {
     const applySettings = (settings: SiteSettings) => {
       const mergedSettings = mergeSiteSettings(settings)
       setSiteSettings(mergedSettings)
-      if (!servicePath && !storePath && !serviceCartPath && !pricingPath)
+      if (!servicePath && !storePath && !serviceCartPath && !pricingPath && !legalPath)
         applySiteSettings(mergedSettings)
     }
     const handleSettingsUpdate = (event: Event) => {
@@ -326,7 +347,7 @@ export default function App() {
       if (settings) applySettings(settings)
     }
 
-    if (!servicePath && !storePath && !serviceCartPath && !pricingPath)
+    if (!servicePath && !storePath && !serviceCartPath && !pricingPath && !legalPath)
       applySiteSettings(siteSettings)
     void getPublicSiteSettings().then((settings) => {
       if (active) applySettings(settings)
@@ -392,6 +413,19 @@ export default function App() {
       <Suspense fallback={<PageLoading />}>
         <PhysicalStore />
       </Suspense>
+    )
+  }
+
+  if (legalPath) {
+    return (
+      <MainLayout
+        onQuote={openQuote}
+        onPortal={() => setPortalOpen(true)}
+        onNavigate={navigateToPath}
+        siteSettings={siteSettings}
+      >
+        <LegalPolicyPage kind={legalPath} settings={siteSettings} />
+      </MainLayout>
     )
   }
 

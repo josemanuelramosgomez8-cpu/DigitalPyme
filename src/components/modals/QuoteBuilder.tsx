@@ -7,6 +7,7 @@ import {
   type ApiService,
   type SolicitudResponse,
 } from "../../lib/api"
+import type { LegalKind } from "../../lib/api"
 import {
   formatCurrency,
   formatServiceMeta,
@@ -67,7 +68,7 @@ export default function QuoteBuilder({
   initialMessage: string
   privacyPublished: boolean
   onClose: () => void
-  onOpenLegal: (kind: "privacy" | "warranty" | "terms" | "returns") => void
+  onOpenLegal: (kind: LegalKind) => void
 }) {
   useScrollLock(true)
 

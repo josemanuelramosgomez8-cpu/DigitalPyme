@@ -1,15 +1,14 @@
 import React from "react"
 import Brand from "../common/Brand"
-import type { SiteSettings } from "../../lib/api"
+import type { LegalKind, SiteSettings } from "../../lib/api"
 
 export default function SiteFooter({
   settings,
   onNavigate,
-  onOpenLegal,
 }: {
   settings: SiteSettings
   onNavigate: (path: string) => void
-  onOpenLegal: (kind: "privacy" | "warranty" | "terms" | "returns") => void
+  onOpenLegal?: (kind: LegalKind) => void
 }) {
   const whatsapp = settings.contact.whatsapp_phone?.replace(/\D/g, "")
   const coverage =
@@ -93,23 +92,39 @@ export default function SiteFooter({
 
         <nav className="site-footer-column" aria-label="Información legal">
           <h2>Información</h2>
-          <button type="button" onClick={() => onOpenLegal("warranty")}>
-            Garantía
-          </button>
-          <button type="button" onClick={() => onOpenLegal("terms")}>
-            Términos y condiciones
-          </button>
-          {settings.legal.privacy_published &&
-            settings.legal.privacy?.trim() && (
-              <button type="button" onClick={() => onOpenLegal("privacy")}>
-                Privacidad
-              </button>
-            )}
-          {settings.legal.returns?.trim() && (
-            <button type="button" onClick={() => onOpenLegal("returns")}>
-              Cambios y devoluciones
-            </button>
-          )}
+          {([
+            ["terms", "Términos y condiciones", "/legal/terminos-y-condiciones"],
+            ["payments", "Pagos y facturación", "/legal/pagos-y-facturacion"],
+            ["returns", "Reembolsos y cancelaciones", "/legal/reembolsos-y-cancelaciones"],
+            ["revisions", "Revisiones y entregas", "/legal/revisiones-y-entregas"],
+            ["intellectual_property", "Propiedad intelectual", "/legal/propiedad-intelectual"],
+            ["privacy", "Privacidad (Ley 29733)", "/legal/privacidad"],
+            ["promotions", "Promociones", "/legal/promociones"],
+            ["complaints", "Libro de Reclamaciones virtual", "/libro-de-reclamaciones"],
+          ] as [LegalKind, string, string][]).map(([kind, label, path]) => {
+            if (kind === "complaints" && settings.legal.complaints_url) {
+              return (
+                <a
+                  key={kind}
+                  href={settings.legal.complaints_url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {label}
+                </a>
+              )
+            }
+
+            return (
+              <a
+                key={kind}
+                href={path}
+                onClick={(event) => navigate(event, path)}
+              >
+                {label}
+              </a>
+            )
+          })}
         </nav>
 
         <div className="site-footer-bottom">

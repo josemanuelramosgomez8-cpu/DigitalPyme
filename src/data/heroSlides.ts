@@ -36,6 +36,7 @@ export interface CleanHeroSlide {
   amountUSD: number
   image: string
   imageAlt: string
+  video?: string
   deviceTag: string
   theme: HeroSlideTheme
 }
@@ -86,6 +87,36 @@ export const PAYMENT_SEALS: PaymentSeal[] = [
 export const HERO_SLIDES: CleanHeroSlide[] = [
   {
     id: 0,
+    categoryKey: "presentacion",
+    tabLabel: "Presentación",
+    tabIcon: "web",
+    badgeText: "Conoce DigitalPyme",
+    headlinePrefix: "Impulsamos tu negocio",
+    headlineHighlight: "con soluciones digitales",
+    headlineSuffix: "que sí venden.",
+    subtitle:
+      "Descubre cómo podemos transformar tu presencia en línea y convertir visitas en clientes reales.",
+    ctaLabel: "Solicitar cotización",
+    serviceTarget: "Páginas web",
+    pricePEN: "Desde S/ 650",
+    priceUSD: "Desde $ 180 USD",
+    amountPEN: 650,
+    amountUSD: 180,
+    image: "/images/banners/hero-banner.png",
+    imageAlt: "Presentación de DigitalPyme",
+    video: "/videos/banner.mp4",
+    deviceTag: "🎬 Presentación DigitalPyme",
+    theme: {
+      bgGradient:
+        "linear-gradient(135deg, #102c2c 0%, #164e4e 45%, #1f6b63 100%)",
+      ctaBg: "bg-[var(--lime)] hover:bg-[var(--lime-dark)] text-[#102c2c] font-extrabold",
+      accentGlow: "rgba(201, 244, 91, 0.35)",
+      badgeStyle: "bg-black/30 border-emerald-300/50 text-emerald-100",
+      tagColor: "text-[var(--lime)]",
+    },
+  },
+  {
+    id: 1,
     categoryKey: "navidad",
     tabLabel: "Navidad 20% OFF",
     tabIcon: "holiday",
